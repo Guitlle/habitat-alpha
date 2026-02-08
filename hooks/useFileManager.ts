@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { FileNode, ToolType, Panel } from '../types';
 import { db } from '../services/db';
+import { syncService } from '../services/syncService';
 
 export const useFileManager = (
     t: any,
     activePanels: Panel[],
-    setActivePanels: React.Dispatch<React.SetStateAction<Panel[]>>
+    setActivePanels: React.Dispatch<React.SetStateAction<Panel[]>>,
+    userId?: string
 ) => {
     const [flatFiles, setFlatFiles] = useState<FileNode[]>([]);
     const [openFiles, setOpenFiles] = useState<FileNode[]>([]);
@@ -60,14 +62,16 @@ export const useFileManager = (
 
     const handleAddFile = useCallback(async (node: FileNode) => {
         await db.addFile(node);
+        if (userId) await syncService.push('files', node, userId);
         setFlatFiles(prev => [...prev, node]);
-    }, []);
+    }, [userId]);
 
     const handleUpdateFile = useCallback(async (node: FileNode) => {
         await db.updateFile(node);
+        if (userId) await syncService.push('files', node, userId);
         setFlatFiles(prev => prev.map(f => f.id === node.id ? node : f));
         setOpenFiles(prev => prev.map(f => f.id === node.id ? node : f));
-    }, []);
+    }, [userId]);
 
     const handleSaveFileContent = useCallback(async (file: FileNode, content: string) => {
         const updated = { ...file, content, updatedAt: new Date() };
@@ -91,10 +95,11 @@ export const useFileManager = (
         const idsToDelete = [nodeId, ...findDescendants(nodeId, flatFiles)];
         for (const id of idsToDelete) {
             await db.deleteFile(id);
+            if (userId) await syncService.delete('files', id);
         }
         setFlatFiles(prev => prev.filter(f => !idsToDelete.includes(f.id)));
         setOpenFiles(prev => prev.filter(f => !idsToDelete.includes(f.id)));
-    }, [flatFiles]);
+    }, [flatFiles, userId]);
 
     const handleDirtyChange = useCallback((fileId: string, isDirty: boolean) => {
         setDirtyFileIds(prev => {

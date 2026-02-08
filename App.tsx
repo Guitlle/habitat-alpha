@@ -15,7 +15,11 @@ import WikipediaExplorer from './components/WikipediaExplorer';
 import TerrainExplorer from './components/TerrainExplorer';
 import GeoGebraGrapher from './components/Calculator';
 import GroupChat from './components/GroupChat';
-import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users } from 'lucide-react';
+import { supabase } from './services/supabase';
+import { syncService } from './services/syncService';
+import AuthModal from './components/Modals/AuthModal';
+import { User } from '@supabase/supabase-js';
+import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users, LogIn, LogOut, Loader2 } from 'lucide-react';
 
 // Contexts
 import { useLanguage } from './contexts/LanguageContext';
@@ -38,10 +42,14 @@ const App: React.FC = () => {
     { id: ToolType.TERRAIN, type: ToolType.TERRAIN }
   ]);
 
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   // Custom Hooks
-  const { workData, setWorkData, actions: projectActions } = useProjectManager();
-  const { memoryData, actions: memoryActions } = useMemoryManager();
-  const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager();
+  const { workData, setWorkData, actions: projectActions } = useProjectManager(user?.id);
+  const { memoryData, setMemoryData, actions: memoryActions } = useMemoryManager(user?.id);
+  const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager(user?.id);
 
   const {
     fileTree,
@@ -51,7 +59,7 @@ const App: React.FC = () => {
     dirtyFileIds,
     actions: fileActions,
     setFlatFiles
-  } = useFileManager(t, activePanels, setActivePanels);
+  } = useFileManager(t, activePanels, setActivePanels, user?.id);
 
   const {
     rightPanelTab,
@@ -68,30 +76,77 @@ const App: React.FC = () => {
   // Wiki State
   const [wikiQuery, setWikiQuery] = useState<string>('');
 
-  const { messages, isThinking, handleSendMessage } = useChatManager(t, workData, {
+  const { messages, setMessages, isThinking, handleSendMessage } = useChatManager(t, workData, {
     addMemoryNode: memoryActions.addMemoryNode,
     handleAddProject: projectActions.addProject,
     handleAddTask: projectActions.addTask,
     setWikiQuery,
     toggleTool: layoutActions.toggleTool,
     activePanels
-  });
+  }, user?.id);
 
-  // Load Initial Data
+  // Load Initial Data & Auth Sync
   useEffect(() => {
     const initData = async () => {
       try {
-        const { workData: dbWorkData, files: dbFiles, events: dbEvents, schedule: dbSchedule } = await db.init();
+        const {
+          workData: dbWorkData,
+          files: dbFiles,
+          events: dbEvents,
+          schedule: dbSchedule,
+          memoryNodes: dbNodes,
+          memoryLinks: dbLinks,
+          chatMessages: dbMessages
+        } = await db.init();
         setWorkData(dbWorkData);
         setFlatFiles(dbFiles);
         setEvents(dbEvents);
         setSchedule(dbSchedule);
+        if (dbNodes.length > 0) setMemoryData({ nodes: dbNodes, links: dbLinks });
+        if (dbMessages.length > 0) setMessages(dbMessages);
+
+        // Check Auth
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          setIsSyncing(true);
+          await syncService.pullAll(session.user.id);
+          // Refresh data from DB after pull
+          const updated = await db.getAllData();
+          setWorkData(updated.workData);
+          setFlatFiles(updated.files);
+          setEvents(updated.events);
+          setSchedule(updated.schedule);
+          setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
+          if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
+          setIsSyncing(false);
+        }
       } catch (err) {
         console.error("Failed to initialize database:", err);
       }
     };
     initData();
-  }, [setWorkData, setFlatFiles, setEvents]);
+
+    // Listener for Auth Changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setIsSyncing(true);
+        await syncService.pullAll(session.user.id);
+        const updated = await db.getAllData();
+        setWorkData(updated.workData);
+        setFlatFiles(updated.files);
+        setEvents(updated.events);
+        setSchedule(updated.schedule);
+        setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
+        if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
+        setIsSyncing(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [setWorkData, setFlatFiles, setEvents, setSchedule, setMemoryData, setMessages]);
 
   // --- Rendering ---
 
@@ -229,6 +284,30 @@ const App: React.FC = () => {
               {t.common.settings}
             </span>
           </button>
+
+          <div className="w-8 h-px bg-gray-200 dark:bg-gray-800 my-2"></div>
+
+          {user ? (
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all relative group"
+            >
+              <LogOut size={22} />
+              <span className="absolute left-14 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity border border-gray-200 dark:border-gray-700 shadow-md">
+                Logout
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="p-3 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all relative group"
+            >
+              <LogIn size={22} />
+              <span className="absolute left-14 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity border border-gray-200 dark:border-gray-700 shadow-md whitespace-nowrap">
+                Cloud Sync
+              </span>
+            </button>
+          )}
         </div>
       </aside>
 
@@ -445,6 +524,15 @@ const App: React.FC = () => {
           </>
         )}
       </main>
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+
+      {isSyncing && (
+        <div className="fixed bottom-4 right-4 z-50 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold animate-pulse">
+          <Loader2 size={14} className="animate-spin" />
+          Syncing...
+        </div>
+      )}
     </div>
   );
 };

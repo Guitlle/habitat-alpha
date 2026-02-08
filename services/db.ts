@@ -1,8 +1,8 @@
-import { WorkData, Project, Epic, Task, FileNode, CalendarEvent, ScheduleClass } from '../types';
+import { WorkData, Project, Epic, Task, FileNode, CalendarEvent, ScheduleClass, MemoryNode, MemoryLink, Message } from '../types';
 import { initialWorkData, initialFiles, initialEvents } from './mockDataService';
 
 const DB_NAME = 'CognitiveWorkspaceDB';
-const DB_VERSION = 4; // Bumped version for 'schedule' store
+const DB_VERSION = 5; // Bumped version for Memory & Chat stores
 
 // Helper to flatten the initial tree structure for DB storage
 const flattenFileTree = (nodes: FileNode[], parentId: string = 'root'): FileNode[] => {
@@ -39,6 +39,9 @@ export const db = {
                 if (!database.objectStoreNames.contains('files')) database.createObjectStore('files', { keyPath: 'id' });
                 if (!database.objectStoreNames.contains('events')) database.createObjectStore('events', { keyPath: 'id' });
                 if (!database.objectStoreNames.contains('schedule')) database.createObjectStore('schedule', { keyPath: 'id' });
+                if (!database.objectStoreNames.contains('memory_nodes')) database.createObjectStore('memory_nodes', { keyPath: 'id' });
+                if (!database.objectStoreNames.contains('memory_links')) database.createObjectStore('memory_links', { keyPath: 'id' });
+                if (!database.objectStoreNames.contains('chat_messages')) database.createObjectStore('chat_messages', { keyPath: 'id' });
             };
 
             request.onsuccess = (event) => resolve((event.target as IDBOpenDBRequest).result);
@@ -46,9 +49,9 @@ export const db = {
         });
     },
 
-    init: async (): Promise<{ workData: WorkData, files: FileNode[], events: CalendarEvent[], schedule: ScheduleClass[] }> => {
+    init: async (): Promise<{ workData: WorkData, files: FileNode[], events: CalendarEvent[], schedule: ScheduleClass[], memoryNodes: MemoryNode[], memoryLinks: MemoryLink[], chatMessages: Message[] }> => {
         const database = await db.open();
-        const tx = database.transaction(['projects', 'epics', 'tasks', 'files', 'events', 'schedule'], 'readwrite');
+        const tx = database.transaction(['projects', 'epics', 'tasks', 'files', 'events', 'schedule', 'memory_nodes', 'memory_links', 'chat_messages'], 'readwrite');
 
         const projectsStore = tx.objectStore('projects');
         const filesStore = tx.objectStore('files');
@@ -93,9 +96,9 @@ export const db = {
         });
     },
 
-    getAllData: async (existingDb?: IDBDatabase): Promise<{ workData: WorkData, files: FileNode[], events: CalendarEvent[], schedule: ScheduleClass[] }> => {
+    getAllData: async (existingDb?: IDBDatabase): Promise<{ workData: WorkData, files: FileNode[], events: CalendarEvent[], schedule: ScheduleClass[], memoryNodes: MemoryNode[], memoryLinks: MemoryLink[], chatMessages: Message[] }> => {
         const database = existingDb || await db.open();
-        const tx = database.transaction(['projects', 'epics', 'tasks', 'files', 'events', 'schedule'], 'readonly');
+        const tx = database.transaction(['projects', 'epics', 'tasks', 'files', 'events', 'schedule', 'memory_nodes', 'memory_links', 'chat_messages'], 'readonly');
 
         const projects = await new Promise<Project[]>((resolve, reject) => {
             const req = tx.objectStore('projects').getAll();
@@ -122,13 +125,28 @@ export const db = {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
         });
+        const chatMessages = await new Promise<Message[]>((resolve, reject) => {
+            const req = tx.objectStore('chat_messages').getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+        const memoryNodes = await new Promise<MemoryNode[]>((resolve, reject) => {
+            const req = tx.objectStore('memory_nodes').getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+        const memoryLinks = await new Promise<MemoryLink[]>((resolve, reject) => {
+            const req = tx.objectStore('memory_links').getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
         const schedule = await new Promise<ScheduleClass[]>((resolve, reject) => {
             const req = tx.objectStore('schedule').getAll();
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
         });
 
-        return { workData: { projects, epics, tasks }, files, events, schedule };
+        return { workData: { projects, epics, tasks }, files, events, schedule, memoryNodes, memoryLinks, chatMessages };
     },
 
     // --- Project CRUD ---
@@ -288,6 +306,47 @@ export const db = {
         const database = await db.open();
         const tx = database.transaction('schedule', 'readwrite');
         tx.objectStore('schedule').delete(id);
+        return new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    },
+
+    // --- Memory CRUD ---
+    addMemoryNode: async (node: MemoryNode) => {
+        const database = await db.open();
+        const tx = database.transaction('memory_nodes', 'readwrite');
+        tx.objectStore('memory_nodes').add(node);
+        return new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    },
+    addMemoryLink: async (link: MemoryLink) => {
+        const database = await db.open();
+        const tx = database.transaction('memory_links', 'readwrite');
+        const linkWithId = { ...link, id: `${link.source}-${link.target}` };
+        tx.objectStore('memory_links').put(linkWithId);
+        return new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    },
+
+    // --- Chat CRUD ---
+    addChatMessage: async (message: Message) => {
+        const database = await db.open();
+        const tx = database.transaction('chat_messages', 'readwrite');
+        tx.objectStore('chat_messages').add(message);
+        return new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    },
+    clearChatHistory: async () => {
+        const database = await db.open();
+        const tx = database.transaction('chat_messages', 'readwrite');
+        tx.objectStore('chat_messages').clear();
         return new Promise<void>((resolve, reject) => {
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);

@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Message, ToolType, TaskStatus, WorkData, Panel } from '../types';
 import { generateResponse } from '../services/geminiService';
+import { db } from '../services/db';
+import { syncService } from '../services/syncService';
 
 export const useChatManager = (
     t: any,
@@ -12,7 +14,8 @@ export const useChatManager = (
         setWikiQuery: (q: string) => void;
         toggleTool: (id: ToolType) => void;
         activePanels: Panel[];
-    }
+    },
+    userId?: string
 ) => {
     const [messages, setMessages] = useState<Message[]>([
         { id: '0', role: 'model', content: t.chat.system_welcome, timestamp: new Date() }
@@ -21,6 +24,11 @@ export const useChatManager = (
 
     const handleSendMessage = useCallback(async (text: string) => {
         const userMsg: Message = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date() };
+
+        // Persist User Message
+        await db.addChatMessage(userMsg);
+        if (userId) await syncService.push('chat_messages', userMsg, userId);
+
         const newHistory = [...messages, userMsg];
         setMessages(newHistory);
         setIsThinking(true);
@@ -34,7 +42,7 @@ export const useChatManager = (
                 for (const call of response.functionCalls) {
                     if (call.name === 'addMemoryNode') {
                         const { label, group, importance } = call.args as any;
-                        actions.addMemoryNode(label, group, importance);
+                        await actions.addMemoryNode(label, group, importance);
                         toolOutputs.push(`Added concept "${label}" to memory.`);
                         if (!actions.activePanels.some(p => p.id === ToolType.MEMORY)) actions.toggleTool(ToolType.MEMORY);
                     }
@@ -70,14 +78,21 @@ export const useChatManager = (
                 else if (toolOutputs.length > 0) botResponseText += `\n\n[System Update]: ${toolOutputs.join(' ')}`;
             }
 
-            setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', content: botResponseText || "Processed.", timestamp: new Date() }]);
+            const botMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', content: botResponseText || "Processed.", timestamp: new Date() };
+
+            // Persist Bot Message
+            await db.addChatMessage(botMsg);
+            if (userId) await syncService.push('chat_messages', botMsg, userId);
+
+            setMessages(prev => [...prev, botMsg]);
         } catch (err) {
             console.error(err);
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: "Sorry, I encountered an error processing that request.", timestamp: new Date() }]);
+            const errMsg: Message = { id: Date.now().toString(), role: 'model', content: "Sorry, I encountered an error processing that request.", timestamp: new Date() };
+            setMessages(prev => [...prev, errMsg]);
         } finally {
             setIsThinking(false);
         }
-    }, [messages, actions, workData.epics]);
+    }, [messages, actions, workData.epics, userId]);
 
     return {
         messages,
