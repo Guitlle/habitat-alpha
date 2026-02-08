@@ -207,4 +207,37 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_check_team_size
 BEFORE INSERT ON public.team_members
-FOR EACH ROW EXECUTE FUNCTION check_team_size();
+
+-- 5. User Profiles & AI Usage (New Additions)
+
+-- User Profiles (Extension of auth.users)
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    subscription_tier TEXT DEFAULT 'free', check (subscription_tier in ('free', 'pro')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- AI Usage Tracking
+CREATE TABLE IF NOT EXISTS public.ai_usage (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    model TEXT NOT NULL,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS for new tables
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
+
+-- Policies for User Profiles
+CREATE POLICY "Users can view receive their own profile" ON public.user_profiles
+    FOR SELECT USING (auth.uid() = id);
+
+-- Policies for AI Usage (Read-only for users, Backend writes)
+CREATE POLICY "Users can view their own usage" ON public.ai_usage
+    FOR SELECT USING (auth.uid() = user_id);
+
+-- Note: Insert/Update on ai_usage should be done by the backend with service_role key
