@@ -71,9 +71,32 @@ export const syncService = {
      */
     push: async (table: keyof typeof TABLES, data: any, userId: string, teamId?: string) => {
         try {
-            const record = { ...data, user_id: userId, team_id: teamId };
-            const { error } = await supabase.from(TABLES[table]).upsert(record);
-            if (error) throw error;
+            console.log(`Sync: pushing to ${table}`, { userId, teamId });
+            if (!userId) {
+                console.warn("Sync: Cannot push without userId");
+                return false;
+            }
+
+            const tableName = TABLES[table];
+            if (!tableName) {
+                console.error(`Sync: Unknown table mapping for ${table}`);
+                return false;
+            }
+
+            // Clean data to avoid sending undefined fields or extra props that don't match columns
+            const record = { ...data, user_id: userId };
+            if (teamId) record.team_id = teamId;
+
+            // Use a timeout to prevent indefinite hangs
+            const upsertPromise = supabase.from(tableName).upsert(record);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Sync timeout')), 10000));
+
+            const { error } = await Promise.race([upsertPromise, timeoutPromise]) as any;
+
+            if (error) {
+                console.error('Sync: Supabase error', error);
+                throw error;
+            }
             return true;
         } catch (err) {
             console.error(`Sync: Push to ${table} failed`, err);
