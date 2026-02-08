@@ -136,6 +136,7 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        setIsAuthModalOpen(false); // Close modal on successful login (link or code)
         setIsSyncing(true);
         const myTeam = await teamService.getMyTeam();
         setTeam(myTeam);
