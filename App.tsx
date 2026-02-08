@@ -166,7 +166,13 @@ const App: React.FC = () => {
           <Command size={24} className="text-white" />
         </div>
 
-        <nav className="flex flex-col gap-6 w-full items-center flex-1">
+        <nav
+          className="flex flex-col gap-6 w-full items-center flex-1 overflow-y-auto scrollbar-hide py-4 overflow-x-hidden"
+          style={{
+            maskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)'
+          }}
+        >
           {TOOLS.filter(t => t.id !== ToolType.CHAT).map((tool) => {
             const isActive = activePanels.some(p => p.id === tool.id);
             const translatedLabel = t.tools[tool.id as keyof typeof t.tools] || tool.label;
