@@ -10,6 +10,7 @@ interface SearchResult {
   title: string;
   snippet: string;
   pageid: number;
+  thumbnail?: string;
 }
 
 const WikipediaExplorer: React.FC<WikipediaExplorerProps> = ({ initialQuery }) => {
@@ -33,12 +34,21 @@ const WikipediaExplorer: React.FC<WikipediaExplorerProps> = ({ initialQuery }) =
     setError('');
     setSelectedPage(null);
     try {
+      // Using generator=search to get thumbnails and extracts in one go
       const response = await fetch(
-        `https://${language}.wikipedia.org/w/api.php?origin=*&action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&format=json`
+        `https://${language}.wikipedia.org/w/api.php?origin=*&action=query&generator=search&gsrsearch=${encodeURIComponent(searchQuery)}&gsrlimit=10&prop=pageimages|extracts&piprop=thumbnail&pithumbsize=200&exintro&explaintext&exsentences=2&format=json`
       );
       const data = await response.json();
-      if (data.query && data.query.search) {
-        setResults(data.query.search);
+      if (data.query && data.query.pages) {
+        const pages = Object.values(data.query.pages) as any[];
+        // Sort by index if available
+        const sortedPages = pages.sort((a, b) => (a.index || 0) - (b.index || 0)).map(p => ({
+          title: p.title,
+          snippet: p.extract || '',
+          pageid: p.pageid,
+          thumbnail: p.thumbnail?.source
+        }));
+        setResults(sortedPages);
       } else {
         setResults([]);
       }
@@ -85,8 +95,8 @@ const WikipediaExplorer: React.FC<WikipediaExplorerProps> = ({ initialQuery }) =
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10 flex items-center gap-2">
         {selectedPage ? (
-          <button 
-            onClick={() => setSelectedPage(null)} 
+          <button
+            onClick={() => setSelectedPage(null)}
             className="p-2 mr-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
           >
             <ArrowLeft size={18} />
@@ -94,18 +104,18 @@ const WikipediaExplorer: React.FC<WikipediaExplorerProps> = ({ initialQuery }) =
         ) : (
           <Globe size={20} className="text-gray-400 dark:text-gray-500 mr-2" />
         )}
-        
+
         <form onSubmit={handleSubmit} className="flex-1 relative">
-           <input
+          <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.wiki.search_placeholder}
             className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg pl-4 pr-10 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-indigo-500 focus:outline-none"
-           />
-           <button type="submit" className="absolute right-2 top-2 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white">
-             <Search size={16} />
-           </button>
+          />
+          <button type="submit" className="absolute right-2 top-2 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white">
+            <Search size={16} />
+          </button>
         </form>
       </div>
 
@@ -134,16 +144,28 @@ const WikipediaExplorer: React.FC<WikipediaExplorerProps> = ({ initialQuery }) =
         {!selectedPage && results.length > 0 && (
           <div className="p-4 space-y-4">
             {results.map((result) => (
-              <div 
+              <div
                 key={result.pageid}
                 onClick={() => handleFetchPage(result.title)}
-                className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-gray-300 dark:hover:border-gray-600 hover:bg-white dark:hover:bg-gray-800/50 cursor-pointer transition-all group"
+                className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-gray-300 dark:hover:border-gray-600 hover:bg-white dark:hover:bg-gray-800/50 cursor-pointer transition-all group overflow-hidden"
               >
-                <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 mb-2">{result.title}</h3>
-                <div 
-                  className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3"
-                  dangerouslySetInnerHTML={{ __html: result.snippet + '...' }}
-                />
+                <div className="flex gap-4">
+                  {result.thumbnail && (
+                    <div className="w-20 h-20 flex-shrink-0 bg-gray-200 dark:bg-gray-800 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                      <img
+                        src={result.thumbnail}
+                        alt={result.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 mb-1 truncate">{result.title}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">
+                      {result.snippet}...
+                    </p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -152,24 +174,24 @@ const WikipediaExplorer: React.FC<WikipediaExplorerProps> = ({ initialQuery }) =
         {/* Article Viewer */}
         {selectedPage && (
           <div className="p-6 md:p-8 max-w-4xl mx-auto">
-             <div className="flex justify-between items-start mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
-               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPage.title}</h1>
-               <a 
-                 href={`https://${language}.wikipedia.org/wiki/${encodeURIComponent(selectedPage.title)}`} 
-                 target="_blank" 
-                 rel="noreferrer"
-                 className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full"
-               >
-                 {t.wiki.open_in_wiki} <ExternalLink size={12} />
-               </a>
-             </div>
-             <div 
-               className="wiki-content text-gray-800 dark:text-gray-300 space-y-4 leading-relaxed font-sans"
-               dangerouslySetInnerHTML={createMarkup(selectedPage.content)}
-             />
-             
-             {/* Styles for wiki content injection */}
-             <style>{`
+            <div className="flex justify-between items-start mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPage.title}</h1>
+              <a
+                href={`https://${language}.wikipedia.org/wiki/${encodeURIComponent(selectedPage.title)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full"
+              >
+                {t.wiki.open_in_wiki} <ExternalLink size={12} />
+              </a>
+            </div>
+            <div
+              className="wiki-content text-gray-800 dark:text-gray-300 space-y-4 leading-relaxed font-sans"
+              dangerouslySetInnerHTML={createMarkup(selectedPage.content)}
+            />
+
+            {/* Styles for wiki content injection */}
+            <style>{`
                .wiki-content p { margin-bottom: 1rem; line-height: 1.7; }
                .wiki-content h2 { font-size: 1.5rem; font-weight: 700; color: inherit; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid #374151; padding-bottom: 0.5rem; }
                .dark .wiki-content h2 { border-color: #374151; }
