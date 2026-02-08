@@ -59,6 +59,8 @@ const App: React.FC = () => {
     chatWidth,
     panelHeights,
     isDraggingVertical,
+    isMobile,
+    isChatHistoryOpen,
     mainContentRef,
     actions: layoutActions
   } = useLayoutManager(t, dirtyFileIds, activePanels, setActivePanels);
@@ -231,95 +233,217 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex overflow-hidden relative">
-        <section
-          ref={mainContentRef}
-          className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 relative min-w-0 transition-colors duration-200"
-        >
-          {activePanels.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-              <LayoutGrid size={48} className="mb-4 opacity-20" />
-              <p className="text-sm">Select a tool from the sidebar to begin</p>
+        {isMobile ? (
+          <div className="flex-1 flex flex-col min-w-0 h-screen relative">
+            {/* Mobile Chat Tabs - TOP */}
+            <div className="flex border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex-shrink-0">
+              <button
+                onClick={() => {
+                  if (rightPanelTab === 'ai' && isChatHistoryOpen) {
+                    layoutActions.setChatHistoryOpen(false);
+                  } else {
+                    setRightPanelTab('ai');
+                    layoutActions.setChatHistoryOpen(true);
+                  }
+                }}
+                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-900/10'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400'
+                  }`}
+              >
+                <MessageSquare size={14} />
+                <span>AI CHAT</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (rightPanelTab === 'team' && isChatHistoryOpen) {
+                    layoutActions.setChatHistoryOpen(false);
+                  } else {
+                    setRightPanelTab('team');
+                    layoutActions.setChatHistoryOpen(true);
+                  }
+                }}
+                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-900/10'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400'
+                  }`}
+              >
+                <Users size={14} />
+                <span>TEAM CHAT</span>
+              </button>
             </div>
-          ) : (
-            <div className="flex flex-col h-full w-full">
-              {activePanels.map((panel, index) => (
-                <React.Fragment key={panel.id}>
-                  <div
-                    style={{ height: `${panelHeights[index]}%` }}
-                    className="relative min-h-0 w-full transition-[height] duration-0 ease-linear"
-                  >
-                    <div className="absolute inset-0 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950">
-                      {activePanels.length > 1 && (
-                        <div className="absolute top-0 right-0 z-20 p-2">
-                          <button
-                            onClick={() => layoutActions.closePanel(panel.id)}
-                            className="bg-gray-200/80 dark:bg-gray-900/80 hover:bg-red-100 dark:hover:bg-red-900/80 text-gray-500 hover:text-red-500 dark:hover:text-red-200 rounded p-1 transition-colors backdrop-blur-sm"
-                          >
-                            <AlertCircle size={12} className="rotate-45" />
-                          </button>
+
+            {/* Content Area */}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
+              <section
+                ref={mainContentRef}
+                className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 relative min-w-0"
+              >
+                {activePanels.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
+                    <LayoutGrid size={48} className="mb-4 opacity-20" />
+                    <p className="text-sm">Select a tool from the sidebar</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col h-full w-full">
+                    {activePanels.map((panel, index) => (
+                      <React.Fragment key={panel.id}>
+                        <div
+                          style={{ height: `${panelHeights[index]}%` }}
+                          className="relative min-h-0 w-full"
+                        >
+                          <div className="absolute inset-0 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950">
+                            {activePanels.length > 1 && (
+                              <div className="absolute top-0 right-0 z-20 p-2">
+                                <button
+                                  onClick={() => layoutActions.closePanel(panel.id)}
+                                  className="bg-gray-200/80 dark:bg-gray-900/80 text-gray-500 hover:text-red-500 rounded p-1 backdrop-blur-sm"
+                                >
+                                  <AlertCircle size={12} className="rotate-45" />
+                                </button>
+                              </div>
+                            )}
+                            {renderPanelContent(panel)}
+                          </div>
+                        </div>
+                        {index < activePanels.length - 1 && <div className="h-px bg-gray-200 dark:border-gray-800" />}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Mobile Chat Overlay */}
+              {isChatHistoryOpen && (
+                <div className="absolute inset-0 bg-white dark:bg-gray-950 z-40 flex flex-col animate-in slide-in-from-bottom-2 duration-200">
+                  <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        {rightPanelTab === 'ai' ? 'AI Assistant' : 'Team Channel'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => layoutActions.setChatHistoryOpen(false)}
+                      className="p-1 px-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                    >
+                      CLOSE
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {rightPanelTab === 'ai' ? (
+                      <ChatInterface historyOnly messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
+                    ) : (
+                      <GroupChat historyOnly />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Input Area - BOTTOM */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800">
+              {rightPanelTab === 'ai' ? (
+                <ChatInterface minimal messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
+              ) : (
+                <GroupChat minimal />
+              )}
+            </div>
+          </div>
+        ) : (
+          /* DESKTOP LAYOUT (Original) */
+          <>
+            <section
+              ref={mainContentRef}
+              className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 relative min-w-0 transition-colors duration-200"
+            >
+              {activePanels.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
+                  <LayoutGrid size={48} className="mb-4 opacity-20" />
+                  <p className="text-sm">Select a tool from the sidebar to begin</p>
+                </div>
+              ) : (
+                <div className="flex flex-col h-full w-full">
+                  {activePanels.map((panel, index) => (
+                    <React.Fragment key={panel.id}>
+                      <div
+                        style={{ height: `${panelHeights[index]}%` }}
+                        className="relative min-h-0 w-full transition-[height] duration-0 ease-linear"
+                      >
+                        <div className="absolute inset-0 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950">
+                          {activePanels.length > 1 && (
+                            <div className="absolute top-0 right-0 z-20 p-2">
+                              <button
+                                onClick={() => layoutActions.closePanel(panel.id)}
+                                className="bg-gray-200/80 dark:bg-gray-900/80 hover:bg-red-100 dark:hover:bg-red-900/80 text-gray-500 hover:text-red-500 dark:hover:text-red-200 rounded p-1 transition-colors backdrop-blur-sm"
+                              >
+                                <AlertCircle size={12} className="rotate-45" />
+                              </button>
+                            </div>
+                          )}
+                          {renderPanelContent(panel)}
+                        </div>
+                      </div>
+
+                      {index < activePanels.length - 1 && (
+                        <div
+                          className="h-1.5 w-full bg-gray-100 dark:bg-gray-950 border-y border-gray-200 dark:border-gray-800 hover:bg-indigo-500/20 dark:hover:bg-indigo-600/50 hover:border-indigo-500/50 cursor-row-resize z-30 flex items-center justify-center transition-colors flex-shrink-0"
+                          onMouseDown={(e) => layoutActions.verticalResizeStart(index, e)}
+                        >
+                          <GripHorizontal size={12} className="text-gray-400 dark:text-gray-600" />
                         </div>
                       )}
-                      {renderPanelContent(panel)}
-                    </div>
-                  </div>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+            </section>
 
-                  {index < activePanels.length - 1 && (
-                    <div
-                      className="h-1.5 w-full bg-gray-100 dark:bg-gray-950 border-y border-gray-200 dark:border-gray-800 hover:bg-indigo-500/20 dark:hover:bg-indigo-600/50 hover:border-indigo-500/50 cursor-row-resize z-30 flex items-center justify-center transition-colors flex-shrink-0"
-                      onMouseDown={(e) => layoutActions.verticalResizeStart(index, e)}
-                    >
-                      <GripHorizontal size={12} className="text-gray-400 dark:text-gray-600" />
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
+            <div
+              className="w-1.5 bg-gray-100 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 hover:bg-indigo-500 dark:hover:bg-indigo-600 cursor-col-resize z-50 flex flex-col justify-center items-center transition-colors shadow-xl"
+              onMouseDown={layoutActions.chatResizeStart}
+            >
+              <div className="h-12 w-0.5 bg-gray-300 dark:bg-gray-600 rounded-full pointer-events-none" />
             </div>
-          )}
-        </section>
 
-        <div
-          className="w-1.5 bg-gray-100 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 hover:bg-indigo-500 dark:hover:bg-indigo-600 cursor-col-resize z-50 flex flex-col justify-center items-center transition-colors shadow-xl"
-          onMouseDown={layoutActions.chatResizeStart}
-        >
-          <div className="h-12 w-0.5 bg-gray-300 dark:bg-gray-600 rounded-full pointer-events-none" />
-        </div>
-
-        <section
-          className="flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 shadow-2xl relative z-10 min-w-[300px] transition-colors duration-200"
-          style={{ width: `${chatWidth}%` }}
-        >
-          {/* Tab Header */}
-          <div className="flex border-b border-gray-200 dark:border-gray-800">
-            <button
-              onClick={() => setRightPanelTab('ai')}
-              className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
-                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
+            <section
+              className="flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 shadow-2xl relative z-10 min-w-[300px] transition-colors duration-200"
+              style={{ width: `${chatWidth}%` }}
             >
-              <MessageSquare size={16} />
-              <span>AI</span>
-            </button>
-            <button
-              onClick={() => setRightPanelTab('team')}
-              className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
-                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
-            >
-              <Users size={16} />
-              <span>Team</span>
-            </button>
-          </div>
+              {/* Tab Header */}
+              <div className="flex border-b border-gray-200 dark:border-gray-800">
+                <button
+                  onClick={() => setRightPanelTab('ai')}
+                  className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
+                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                >
+                  <MessageSquare size={16} />
+                  <span>AI</span>
+                </button>
+                <button
+                  onClick={() => setRightPanelTab('team')}
+                  className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
+                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                >
+                  <Users size={16} />
+                  <span>Team</span>
+                </button>
+              </div>
 
-          <div className="flex-1 relative overflow-hidden">
-            {rightPanelTab === 'ai' ? (
-              <ChatInterface messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
-            ) : (
-              <GroupChat />
-            )}
-          </div>
-        </section>
+              <div className="flex-1 relative overflow-hidden">
+                {rightPanelTab === 'ai' ? (
+                  <ChatInterface messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
+                ) : (
+                  <GroupChat />
+                )}
+              </div>
+            </section>
+          </>
+        )}
       </main>
     </div>
   );

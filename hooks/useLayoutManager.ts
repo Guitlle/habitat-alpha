@@ -11,6 +11,8 @@ export const useLayoutManager = (
     const [chatWidth, setChatWidth] = useState(30);
     const [panelHeights, setPanelHeights] = useState<number[]>([100]);
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
+    const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
     const panelHeightsRef = useRef<number[]>([100]);
     const activeDragIndexRef = useRef<number | null>(null);
@@ -33,6 +35,12 @@ export const useLayoutManager = (
     useEffect(() => {
         panelHeightsRef.current = panelHeights;
     }, [panelHeights]);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const toggleTool = useCallback((toolId: ToolType) => {
         if (toolId === ToolType.CHAT) return;
@@ -140,12 +148,16 @@ export const useLayoutManager = (
         chatWidth,
         panelHeights,
         isDraggingVertical,
+        isChatHistoryOpen,
+        isMobile,
         mainContentRef,
         actions: {
             toggleTool,
             closePanel,
             chatResizeStart: handleChatResizeStart,
-            verticalResizeStart: handleVerticalResizeStart
+            verticalResizeStart: handleVerticalResizeStart,
+            toggleChatHistory: () => setIsChatHistoryOpen(prev => !prev),
+            setChatHistoryOpen: (val: boolean) => setIsChatHistoryOpen(val)
         }
     };
 };
