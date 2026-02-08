@@ -39,7 +39,7 @@ const GeoGebraGrapher: React.FC<GeoGebraProps> = ({
           showAlgebraInput,
           showMenuBar,
           playButton: false,
-          scale: 1
+          scale: 0.75
         };
 
         const ggbApplet = new window.GGBApplet(params, true);
@@ -63,9 +63,9 @@ const GeoGebraGrapher: React.FC<GeoGebraProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
-      <div 
-        id="ggb-element" 
-        ref={containerRef} 
+      <div
+        id="ggb-element"
+        ref={containerRef}
         style={{ width: '100%', maxWidth: width, height: height }}
       />
     </div>

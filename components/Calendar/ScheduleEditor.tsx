@@ -13,7 +13,7 @@ interface ScheduleEditorProps {
 }
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
-const HOURS = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 9 PM
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 6); // 8 AM to 9 PM
 
 const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ classes, actions }) => {
     const { t, language } = useLanguage();
@@ -79,7 +79,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ classes, actions }) => 
         const [startH, startM] = startTime.split(':').map(Number);
         const [endH, endM] = endTime.split(':').map(Number);
 
-        const top = (startH - 8) * 60 + startM;
+        const top = (startH - 6) * 60 + startM;
         const duration = (endH * 60 + endM) - (startH * 60 + startM);
 
         return {
