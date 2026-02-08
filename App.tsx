@@ -41,7 +41,7 @@ const App: React.FC = () => {
   // Custom Hooks
   const { workData, setWorkData, actions: projectActions } = useProjectManager();
   const { memoryData, actions: memoryActions } = useMemoryManager();
-  const { events, setEvents, actions: calendarActions } = useCalendarManager();
+  const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager();
 
   const {
     fileTree,
@@ -79,10 +79,11 @@ const App: React.FC = () => {
   useEffect(() => {
     const initData = async () => {
       try {
-        const { workData: dbWorkData, files: dbFiles, events: dbEvents } = await db.init();
+        const { workData: dbWorkData, files: dbFiles, events: dbEvents, schedule: dbSchedule } = await db.init();
         setWorkData(dbWorkData);
         setFlatFiles(dbFiles);
         setEvents(dbEvents);
+        setSchedule(dbSchedule);
       } catch (err) {
         console.error("Failed to initialize database:", err);
       }
@@ -122,10 +123,14 @@ const App: React.FC = () => {
       case ToolType.CALENDAR: return (
         <CalendarView
           events={events}
+          schedule={schedule}
           actions={{
             addEvent: calendarActions.addEvent,
             updateEvent: calendarActions.updateEvent,
-            deleteEvent: calendarActions.deleteEvent
+            deleteEvent: calendarActions.deleteEvent,
+            addClass: calendarActions.addClass,
+            updateClass: calendarActions.updateClass,
+            deleteClass: calendarActions.deleteClass
           }}
         />
       );
@@ -171,8 +176,8 @@ const App: React.FC = () => {
                 key={tool.id}
                 onClick={() => layoutActions.toggleTool(tool.id as ToolType)}
                 className={`p-3 rounded-xl transition-all duration-200 group relative ${isActive
-                    ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-500/30'
-                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-900'
+                  ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-500/30'
+                  : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-900'
                   }`}
               >
                 <tool.icon size={22} />
@@ -282,8 +287,8 @@ const App: React.FC = () => {
             <button
               onClick={() => setRightPanelTab('ai')}
               className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
-                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
             >
               <MessageSquare size={16} />
@@ -292,8 +297,8 @@ const App: React.FC = () => {
             <button
               onClick={() => setRightPanelTab('team')}
               className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
-                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
             >
               <Users size={16} />

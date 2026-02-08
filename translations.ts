@@ -95,10 +95,37 @@ export const translations = {
       new_event: 'New Event',
       edit_event: 'Edit Event',
       delete_event: 'Delete event?',
-      title: 'Título',
+      title: 'Title',
       start: 'Start',
       end: 'End',
-      type: 'Type'
+      type: 'Type',
+      schedule_title: 'School Schedule',
+      view_month: 'Calendar',
+      view_schedule: 'Schedule',
+      weekly_schedule: 'Weekly Schedule',
+      add_class: 'Add Class',
+      edit_class: 'Edit Class',
+      new_class: 'New Class',
+      subject: 'Subject',
+      day: 'Day',
+      color: 'Color',
+      start_time: 'Start Time',
+      end_time: 'End Time',
+      location: 'Location',
+      teacher: 'Teacher',
+      delete_class_confirm: 'Delete this class?',
+      event_types: {
+        meeting: 'Meeting',
+        sprint: 'Sprint',
+        deadline: 'Deadline'
+      },
+      placeholders: {
+        event_title: 'Meeting title...',
+        location: 'Room 101',
+        teacher: 'Prof. Smith'
+      },
+      days_short: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      days_short_mon: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     },
     wiki: {
       search_placeholder: 'Search Wikipedia...',
@@ -211,7 +238,34 @@ export const translations = {
       title: 'Título',
       start: 'Inicio',
       end: 'Fin',
-      type: 'Tipo'
+      type: 'Tipo',
+      schedule_title: 'Horario Escolar',
+      view_month: 'Calendario',
+      view_schedule: 'Horario',
+      weekly_schedule: 'Horario Semanal',
+      add_class: 'Añadir Clase',
+      edit_class: 'Editar Clase',
+      new_class: 'Nueva Clase',
+      subject: 'Materia',
+      day: 'Día',
+      color: 'Color',
+      start_time: 'Hora Inicio',
+      end_time: 'Hora Fin',
+      location: 'Ubicación',
+      teacher: 'Profesor',
+      delete_class_confirm: '¿Eliminar esta clase?',
+      event_types: {
+        meeting: 'Cita',
+        sprint: 'Sprint',
+        deadline: 'Fecha Límite'
+      },
+      placeholders: {
+        event_title: 'Título de la cita...',
+        location: 'Salón 101',
+        teacher: 'Prof. García'
+      },
+      days_short: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+      days_short_mon: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
     },
     wiki: {
       search_placeholder: 'Buscar en Wikipedia...',

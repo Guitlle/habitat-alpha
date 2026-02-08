@@ -114,3 +114,15 @@ export interface CalendarEvent {
   end: Date;
   type: 'sprint' | 'meeting' | 'deadline';
 }
+
+// School Schedule
+export interface ScheduleClass {
+  id: string;
+  title: string;
+  day: number; // 1 (Mon) to 7 (Sun)
+  startTime: string; // "HH:mm"
+  endTime: string; // "HH:mm"
+  location?: string;
+  teacher?: string;
+  color?: string;
+}
