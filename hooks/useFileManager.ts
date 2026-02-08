@@ -62,17 +62,33 @@ export const useFileManager = (
     }, [activeFileId, dirtyFileIds]);
 
     const handleAddFile = useCallback(async (node: FileNode) => {
-        await db.addFile(node);
-        if (userId) await syncService.push('files', node, userId, teamId);
-        setFlatFiles(prev => [...prev, node]);
-    }, [userId, teamId]);
+        let finalNode = { ...node };
+
+        // Context translation for virtual roots
+        if (node.parentId === 'team-root') {
+            finalNode.teamId = teamId;
+            finalNode.parentId = undefined;
+        } else if (node.parentId === 'private-root') {
+            finalNode.teamId = undefined;
+            finalNode.parentId = undefined;
+        } else if (node.parentId) {
+            // Inherit from parent
+            const parent = flatFiles.find(f => f.id === node.parentId);
+            if (parent) finalNode.teamId = parent.teamId;
+        }
+
+        await db.addFile(finalNode);
+        if (userId) await syncService.push('files', finalNode, userId, finalNode.teamId);
+        setFlatFiles(prev => [...prev, finalNode]);
+    }, [userId, teamId, flatFiles]);
 
     const handleUpdateFile = useCallback(async (node: FileNode) => {
         await db.updateFile(node);
-        if (userId) await syncService.push('files', node, userId, teamId);
+        // Use the node's specific teamId, not the global one
+        if (userId) await syncService.push('files', node, userId, node.teamId);
         setFlatFiles(prev => prev.map(f => f.id === node.id ? node : f));
         setOpenFiles(prev => prev.map(f => f.id === node.id ? node : f));
-    }, [userId, teamId]);
+    }, [userId]);
 
     const handleSaveFileContent = useCallback(async (file: FileNode, content: string) => {
         const updated = { ...file, content, updatedAt: new Date() };
@@ -112,13 +128,38 @@ export const useFileManager = (
     }, []);
 
     const fileTree = useMemo(() => {
-        const buildTree = (parentId: string | undefined): FileNode[] => {
-            return flatFiles
+        const buildTree = (parentId: string | undefined, list: FileNode[]): FileNode[] => {
+            return list
                 .filter(f => f.parentId === parentId || (!parentId && !f.parentId))
-                .map(f => ({ ...f, children: buildTree(f.id) }));
+                .map(f => ({ ...f, children: buildTree(f.id, list) }));
         };
-        return buildTree(undefined);
-    }, [flatFiles]);
+
+        const privateFiles = flatFiles.filter(f => !f.teamId);
+        const teamFiles = flatFiles.filter(f => !!f.teamId);
+
+        const tree: FileNode[] = [];
+
+        // Private Root
+        tree.push({
+            id: 'private-root',
+            name: 'My Private Files',
+            type: 'folder',
+            children: buildTree(undefined, privateFiles)
+        });
+
+        // Team Root (if applicable)
+        if (teamId) {
+            tree.push({
+                id: 'team-root',
+                name: 'Team Workspace',
+                type: 'folder',
+                teamId: teamId,
+                children: buildTree(undefined, teamFiles)
+            });
+        }
+
+        return tree;
+    }, [flatFiles, teamId]);
 
     return {
         flatFiles,

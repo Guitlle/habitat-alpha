@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS public.schedule (
 CREATE TABLE IF NOT EXISTS public.memory_nodes (
     id TEXT PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
     label TEXT NOT NULL,
     "group" INTEGER DEFAULT 1,
     val INTEGER DEFAULT 10,
@@ -123,6 +124,7 @@ CREATE TABLE IF NOT EXISTS public.memory_nodes (
 CREATE TABLE IF NOT EXISTS public.memory_links (
     id TEXT PRIMARY KEY, -- Composite or random
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
     source TEXT NOT NULL REFERENCES public.memory_nodes(id) ON DELETE CASCADE,
     target TEXT NOT NULL REFERENCES public.memory_nodes(id) ON DELETE CASCADE,
     value INTEGER DEFAULT 1
@@ -166,12 +168,26 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('projects', 'epics', 'tasks', 'files', 'events', 'schedule', 'memory_nodes', 'memory_links', 'group_messages')
+  FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('projects', 'epics', 'tasks', 'events', 'schedule', 'group_messages')
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Users can only access their own %I" ON public.%I;', t, t);
     EXECUTE format('CREATE POLICY "Team access for %I" ON public.%I FOR ALL USING (auth.uid() = user_id OR team_id = get_my_team_id());', t, t);
   END LOOP;
 END $$;
+
+-- Explicit File Policies (Private vs Team)
+DROP POLICY IF EXISTS "Team access for files" ON public.files;
+CREATE POLICY "Private files access" ON public.files FOR ALL USING (team_id IS NULL AND auth.uid() = user_id);
+CREATE POLICY "Team files access" ON public.files FOR ALL USING (team_id IS NOT NULL AND team_id = get_my_team_id());
+
+-- Explicit Memory Policies (Private vs Team)
+DROP POLICY IF EXISTS "Team access for memory_nodes" ON public.memory_nodes;
+CREATE POLICY "Private memory nodes" ON public.memory_nodes FOR ALL USING (team_id IS NULL AND auth.uid() = user_id);
+CREATE POLICY "Team memory nodes" ON public.memory_nodes FOR ALL USING (team_id IS NOT NULL AND team_id = get_my_team_id());
+
+DROP POLICY IF EXISTS "Team access for memory_links" ON public.memory_links;
+CREATE POLICY "Private memory links" ON public.memory_links FOR ALL USING (team_id IS NULL AND auth.uid() = user_id);
+CREATE POLICY "Team memory links" ON public.memory_links FOR ALL USING (team_id IS NOT NULL AND team_id = get_my_team_id());
 
 -- Team Membership Policies
 CREATE POLICY "Users can see their team members" ON public.team_members FOR SELECT USING (team_id = get_my_team_id());
