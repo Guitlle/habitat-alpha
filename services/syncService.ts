@@ -69,9 +69,9 @@ export const syncService = {
     /**
      * Pushes a single record update to Supabase
      */
-    push: async (table: keyof typeof TABLES, data: any, userId: string) => {
+    push: async (table: keyof typeof TABLES, data: any, userId: string, teamId?: string) => {
         try {
-            const record = { ...data, user_id: userId };
+            const record = { ...data, user_id: userId, team_id: teamId };
             const { error } = await supabase.from(TABLES[table]).upsert(record);
             if (error) throw error;
             return true;

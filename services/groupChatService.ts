@@ -1,28 +1,65 @@
-
+import { supabase } from './supabase';
 import { GroupMessage } from '../types';
 
-export const initialGroupMessages: GroupMessage[] = [
-  { id: '1', userId: 'user-2', userName: 'Alice', content: 'Hey team, how is the MVP coming along?', timestamp: new Date(Date.now() - 1000 * 60 * 60) },
-  { id: '2', userId: 'user-3', userName: 'Bob', content: 'Just finished the database schema.', timestamp: new Date(Date.now() - 1000 * 60 * 30) },
-  { id: '3', userId: 'user-4', userName: 'Charlie', content: 'Great! I will start the API endpoints.', timestamp: new Date(Date.now() - 1000 * 60 * 5) },
-];
-
 class GroupChatService {
-  private messages: GroupMessage[] = [...initialGroupMessages];
   private listeners: ((messages: GroupMessage[]) => void)[] = [];
-  private intervalId: NodeJS.Timeout | null = null;
+  private messages: GroupMessage[] = [];
+  private channel: any = null;
+  private teamId: string | null = null;
 
-  constructor() {
-    this.startSimulation();
-  }
+  /**
+   * Initializes the service for a specific team
+   */
+  async setTeam(teamId: string) {
+    if (this.teamId === teamId) return;
+    this.teamId = teamId;
 
-  private startSimulation() {
-    // Simulate incoming messages every 15-45 seconds
-    this.intervalId = setInterval(() => {
-      if (Math.random() > 0.6) {
-        this.receiveMockMessage();
-      }
-    }, 15000);
+    // Clean up old subscription
+    if (this.channel) {
+      this.channel.unsubscribe();
+    }
+
+    // 1. Fetch History
+    const { data, error } = await supabase
+      .from('group_messages')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('timestamp', { ascending: true })
+      .limit(100);
+
+    if (!error && data) {
+      this.messages = data.map(m => ({
+        ...m,
+        timestamp: new Date(m.timestamp)
+      }));
+      this.notify();
+    }
+
+    // 2. Subscribe to new messages
+    this.channel = supabase
+      .channel(`team-chat-${teamId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'group_messages',
+          filter: `team_id=eq.${teamId}`
+        },
+        (payload) => {
+          const newMessage = {
+            ...payload.new,
+            timestamp: new Date(payload.new.timestamp)
+          } as GroupMessage;
+
+          // Add if not already present (optimization/safety)
+          if (!this.messages.find(m => m.id === newMessage.id)) {
+            this.messages = [...this.messages, newMessage];
+            this.notify();
+          }
+        }
+      )
+      .subscribe();
   }
 
   subscribe(listener: (messages: GroupMessage[]) => void) {
@@ -34,54 +71,25 @@ class GroupChatService {
   }
 
   private notify() {
-    // Return copy to avoid mutation
-    const sorted = [...this.messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    this.listeners.forEach(l => l(sorted));
+    this.listeners.forEach(l => l([...this.messages]));
   }
 
   async sendMessage(text: string): Promise<void> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const newMessage: GroupMessage = {
-      id: Date.now().toString(),
-      userId: 'current-user',
-      userName: 'Me',
-      content: text,
-      timestamp: new Date()
-    };
-    
-    this.messages.push(newMessage);
-    this.notify();
-  }
+    if (!this.teamId) throw new Error('No team selected');
 
-  private receiveMockMessage() {
-    const users = ['Alice', 'Bob', 'Charlie', 'Dave', 'Eve'];
-    const texts = [
-      'Looks good!',
-      'Did you push the changes?',
-      'I need help with the API.',
-      'Deployment is scheduled for Friday.',
-      'Coffee break?',
-      'Check the new designs.',
-      'The server seems slow today.',
-      'Code review pending.',
-      'Nice work on the terrain view!'
-    ];
-    
-    const randomUser = users[Math.floor(Math.random() * users.length)];
-    const randomText = texts[Math.floor(Math.random() * texts.length)];
-    
-    const msg: GroupMessage = {
-      id: Date.now().toString(),
-      userId: `user-${randomUser}`,
-      userName: randomUser,
-      content: randomText,
-      timestamp: new Date()
-    };
-    
-    this.messages.push(msg);
-    this.notify();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('group_messages')
+      .insert({
+        team_id: this.teamId,
+        user_id: user.id,
+        content: text,
+        userName: user.email?.split('@')[0] || 'User' // Default name from email
+      });
+
+    if (error) throw error;
   }
 }
 

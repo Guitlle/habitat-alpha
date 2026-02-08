@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { groupChatService } from '../services/groupChatService';
 import { GroupMessage } from '../types';
-import { Send, Clock, Loader2 } from 'lucide-react';
+import { Send, Clock, Loader2, UserPlus, Link, Copy, Check } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { teamService, Team } from '../services/teamService';
+import { supabase } from '../services/supabase';
 
 const COOLDOWN_SECONDS = 60;
 
@@ -21,6 +23,10 @@ const GroupChat: React.FC<GroupChatProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0); // 0 means ready
+  const [team, setTeam] = useState<Team | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [isCopying, setIsCopying] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to messages
@@ -28,6 +34,34 @@ const GroupChat: React.FC<GroupChatProps> = ({
     const unsubscribe = groupChatService.subscribe((msgs) => {
       setMessages(msgs);
     });
+
+    // Check Team & Handle URL Invites
+    const checkTeamAndInvites = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUserId(user.id);
+
+      // Handle URL Param
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('invite');
+      if (code) {
+        try {
+          await teamService.joinWithCode(code);
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (err: any) {
+          alert(err.message);
+        }
+      }
+
+      const myTeam = await teamService.getMyTeam();
+      setTeam(myTeam);
+      if (myTeam) {
+        groupChatService.setTeam(myTeam.id);
+      }
+    };
+
+    checkTeamAndInvites();
     return unsubscribe;
   }, []);
 
@@ -67,6 +101,31 @@ const GroupChat: React.FC<GroupChatProps> = ({
     }
   };
 
+  const handleCreateInvite = async () => {
+    if (!team) {
+      // Create a default team if none exists
+      try {
+        const newTeam = await teamService.createTeam('My Workspace');
+        setTeam(newTeam);
+        const code = await teamService.createInvite(newTeam.id);
+        setInviteCode(code);
+      } catch (err: any) {
+        alert(err.message);
+      }
+    } else {
+      const code = await teamService.createInvite(team.id);
+      setInviteCode(code);
+    }
+  };
+
+  const copyLink = () => {
+    if (!inviteCode) return;
+    const url = `${window.location.origin}${window.location.pathname}?invite=${inviteCode}`;
+    navigator.clipboard.writeText(url);
+    setIsCopying(true);
+    setTimeout(() => setIsCopying(false), 2000);
+  };
+
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -76,13 +135,37 @@ const GroupChat: React.FC<GroupChatProps> = ({
       {/* Message List */}
       {!minimal && (
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="flex justify-center items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-[10px] text-gray-400 dark:text-gray-600 uppercase tracking-wider font-semibold">Team Online</span>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-[10px] text-gray-400 dark:text-gray-600 uppercase tracking-wider font-semibold">
+                {team ? team.name : 'Team Online'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {inviteCode ? (
+                <button
+                  onClick={copyLink}
+                  className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border border-indigo-100 dark:border-indigo-900/30"
+                >
+                  {isCopying ? <Check size={12} /> : <Link size={12} />}
+                  {isCopying ? 'Copied!' : inviteCode}
+                </button>
+              ) : (
+                <button
+                  onClick={handleCreateInvite}
+                  className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all border border-gray-100 dark:border-gray-800"
+                >
+                  <UserPlus size={12} />
+                  Invite People
+                </button>
+              )}
+            </div>
           </div>
 
           {messages.map((msg) => {
-            const isMe = msg.userId === 'current-user';
+            const isMe = msg.userId === currentUserId;
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-baseline gap-2 mb-1">
@@ -91,8 +174,8 @@ const GroupChat: React.FC<GroupChatProps> = ({
                 </div>
                 <div
                   className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm ${isMe
-                      ? 'bg-indigo-600 text-white rounded-br-none'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-bl-none'
+                    ? 'bg-indigo-600 text-white rounded-br-none'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-bl-none'
                     }`}
                 >
                   {msg.content}

@@ -17,6 +17,7 @@ import GeoGebraGrapher from './components/Calculator';
 import GroupChat from './components/GroupChat';
 import { supabase } from './services/supabase';
 import { syncService } from './services/syncService';
+import { teamService, Team } from './services/teamService';
 import AuthModal from './components/Modals/AuthModal';
 import { User } from '@supabase/supabase-js';
 import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users, LogIn, LogOut, Loader2 } from 'lucide-react';
@@ -43,13 +44,14 @@ const App: React.FC = () => {
   ]);
 
   const [user, setUser] = useState<User | null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Custom Hooks
-  const { workData, setWorkData, actions: projectActions } = useProjectManager(user?.id);
-  const { memoryData, setMemoryData, actions: memoryActions } = useMemoryManager(user?.id);
-  const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager(user?.id);
+  const { workData, setWorkData, actions: projectActions } = useProjectManager(user?.id, team?.id);
+  const { memoryData, setMemoryData, actions: memoryActions } = useMemoryManager(user?.id); // Memory stays personal for now? Or team? Let's keep it personal as per plan unless asked.
+  const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager(user?.id, team?.id);
 
   const {
     fileTree,
@@ -111,6 +113,8 @@ const App: React.FC = () => {
 
         if (session?.user) {
           setIsSyncing(true);
+          const myTeam = await teamService.getMyTeam();
+          setTeam(myTeam);
           await syncService.pullAll(session.user.id);
           // Refresh data from DB after pull
           const updated = await db.getAllData();
@@ -133,6 +137,8 @@ const App: React.FC = () => {
       setUser(session?.user ?? null);
       if (session?.user) {
         setIsSyncing(true);
+        const myTeam = await teamService.getMyTeam();
+        setTeam(myTeam);
         await syncService.pullAll(session.user.id);
         const updated = await db.getAllData();
         setWorkData(updated.workData);
@@ -185,9 +191,9 @@ const App: React.FC = () => {
             addEvent: calendarActions.addEvent,
             updateEvent: calendarActions.updateEvent,
             deleteEvent: calendarActions.deleteEvent,
-            addClass: calendarActions.addClass,
-            updateClass: calendarActions.updateClass,
-            deleteClass: calendarActions.deleteClass
+            addClass: calendarActions.addScheduleClass,
+            updateClass: calendarActions.updateScheduleClass,
+            deleteClass: calendarActions.deleteScheduleClass
           }}
         />
       );

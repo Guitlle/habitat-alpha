@@ -7,7 +7,8 @@ export const useFileManager = (
     t: any,
     activePanels: Panel[],
     setActivePanels: React.Dispatch<React.SetStateAction<Panel[]>>,
-    userId?: string
+    userId?: string,
+    teamId?: string
 ) => {
     const [flatFiles, setFlatFiles] = useState<FileNode[]>([]);
     const [openFiles, setOpenFiles] = useState<FileNode[]>([]);
@@ -62,16 +63,16 @@ export const useFileManager = (
 
     const handleAddFile = useCallback(async (node: FileNode) => {
         await db.addFile(node);
-        if (userId) await syncService.push('files', node, userId);
+        if (userId) await syncService.push('files', node, userId, teamId);
         setFlatFiles(prev => [...prev, node]);
-    }, [userId]);
+    }, [userId, teamId]);
 
     const handleUpdateFile = useCallback(async (node: FileNode) => {
         await db.updateFile(node);
-        if (userId) await syncService.push('files', node, userId);
+        if (userId) await syncService.push('files', node, userId, teamId);
         setFlatFiles(prev => prev.map(f => f.id === node.id ? node : f));
         setOpenFiles(prev => prev.map(f => f.id === node.id ? node : f));
-    }, [userId]);
+    }, [userId, teamId]);
 
     const handleSaveFileContent = useCallback(async (file: FileNode, content: string) => {
         const updated = { ...file, content, updatedAt: new Date() };
