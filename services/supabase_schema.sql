@@ -3,6 +3,13 @@
 
 -- 1. Create tables
 
+-- Teams
+CREATE TABLE IF NOT EXISTS public.teams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Projects
 CREATE TABLE IF NOT EXISTS public.projects (
     id TEXT PRIMARY KEY,
@@ -15,13 +22,6 @@ CREATE TABLE IF NOT EXISTS public.projects (
     archived BOOLEAN DEFAULT FALSE,
     "createdAt" TIMESTAMPTZ DEFAULT NOW(),
     "updatedAt" TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Teams
-CREATE TABLE IF NOT EXISTS public.teams (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Team Members
