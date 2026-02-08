@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitive Workspace AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              gray: {
+                50: '#f9fafb',
+                100: '#f3f4f6',
+                200: '#e5e7eb',
+                300: '#d1d5db',
+                400: '#9ca3af',
+                500: '#6b7280',
+                600: '#4b5563',
+                700: '#374151',
+                800: '#1f2937',
+                850: '#1f2937',
+                900: '#111827',
+                950: '#030712',
+              }
+            }
+          },
+        },
+        darkMode: 'class',
+      }
+    </script>
+    <style>
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #9ca3af; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280; 
+      }
+      .dark ::-webkit-scrollbar-track {
+        background: #111827;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #374151;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #4b5563;
+      }
+      
+      /* Markdown Styles - Light Default, Dark Overrides */
+      .markdown-body h1 { font-size: 1.5em; font-weight: 700; margin-bottom: 0.5em; color: #111827; }
+      .dark .markdown-body h1 { color: #fff; }
+      
+      .markdown-body h2 { font-size: 1.25em; font-weight: 600; margin-bottom: 0.5em; margin-top: 1em; color: #374151; }
+      .dark .markdown-body h2 { color: #e5e7eb; }
+      
+      .markdown-body h3 { font-size: 1.1em; font-weight: 600; margin-bottom: 0.5em; margin-top: 1em; color: #4b5563; }
+      .dark .markdown-body h3 { color: #d1d5db; }
+      
+      .markdown-body p { margin-bottom: 1em; line-height: 1.6; color: #1f2937; }
+      .dark .markdown-body p { color: #d1d5db; }
+
+      .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; color: #1f2937; }
+      .dark .markdown-body ul { color: #d1d5db; }
+
+      .markdown-body code { background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; color: #111827; }
+      .dark .markdown-body code { background-color: #1f2937; color: #e5e7eb; }
+
+      .markdown-body pre { background-color: #f3f4f6; padding: 1em; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; }
+      .dark .markdown-body pre { background-color: #111827; }
+      
+      .markdown-body pre code { background-color: transparent; padding: 0; }
+      
+      .markdown-body blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; margin-bottom: 1em; }
+      .dark .markdown-body blockquote { border-left: 4px solid #4b5563; color: #9ca3af; }
+
+      .markdown-body a { color: #2563eb; text-decoration: none; }
+      .dark .markdown-body a { color: #60a5fa; }
+      .markdown-body a:hover { text-decoration: underline; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "d3": "https://esm.sh/d3@^7.9.0",
+    "marked": "https://esm.sh/marked@12.0.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 transition-colors duration-200">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
