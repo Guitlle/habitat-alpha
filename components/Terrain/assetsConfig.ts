@@ -9,18 +9,18 @@ export const TILE_MAPPING: Record<string, TileConfig> = {
     grass: { file: 'assets/tiles/kenney_isometric-landscape/PNG/landscapeTiles_067.png' }, // Green flat tile
     water: { file: 'assets/tiles/kenney_isometric-landscape/PNG/landscapeTiles_066.png' }, // Blue tile
     sand: { file: 'assets/tiles/kenney_isometric-landscape/PNG/landscapeTiles_073.png' },  // Beige tile
-    stone: { file: 'assets/tiles/kenney_tower-defense/PNG/details/rocks_1.png' }, // Grey stone tile
-    stone2: { file: 'assets/tiles/kenney_tower-defense/PNG/details/rocks_2.png' }, // Grey stone tile
-    stone3: { file: 'assets/tiles/kenney_tower-defense/PNG/details/rocks_3.png' }, // Grey stone tile
-    stone4: { file: 'assets/tiles/kenney_tower-defense/PNG/details/rocks_4.png' }, // Grey stone tile
-    stone5: { file: 'assets/tiles/kenney_tower-defense/PNG/details/rocks_5.png' }, // Grey stone tile
-    stone6: { file: 'assets/tiles/kenney_tower-defense/PNG/details/rocks_6.png' }, // Grey stone tile
-    trees1: { file: 'assets/tiles/kenney_tower-defense/PNG/details/trees_1.png' }, // Trees
-    trees2: { file: 'assets/tiles/kenney_tower-defense/PNG/details/trees_2.png' }, // Trees
-    trees3: { file: 'assets/tiles/kenney_tower-defense/PNG/details/trees_3.png' }, // Trees
-    trees4: { file: 'assets/tiles/kenney_tower-defense/PNG/details/trees_4.png' }, // Trees
-    trees5: { file: 'assets/tiles/kenney_tower-defense/PNG/details/trees_5.png' }, // Trees
-    trees6: { file: 'assets/tiles/kenney_tower-defense/PNG/details/trees_6.png' }, // Trees
+    stone: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/rocks_1.png' }, // Grey stone tile
+    stone2: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/rocks_2.png' }, // Grey stone tile
+    stone3: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/rocks_3.png' }, // Grey stone tile
+    stone4: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/rocks_4.png' }, // Grey stone tile
+    stone5: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/rocks_5.png' }, // Grey stone tile
+    stone6: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/rocks_6.png' }, // Grey stone tile
+    trees1: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/trees_1.png' }, // Trees
+    trees2: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/trees_2.png' }, // Trees
+    trees3: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/trees_3.png' }, // Trees
+    trees4: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/trees_4.png' }, // Trees
+    trees5: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/trees_5.png' }, // Trees
+    trees6: { file: 'assets/tiles/kenney_tower-defense/PNG/Details/trees_6.png' }, // Trees
     snow: { file: 'assets/tiles/kenney_isometric-landscape/PNG/landscapeTiles_059.png' },  // White snow tile
 
     pathRightLeft: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_29.png' },
@@ -30,6 +30,7 @@ export const TILE_MAPPING: Record<string, TileConfig> = {
     pathDownLeft: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_31.png' },
     pathDownRight: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_34.png' },
     pathAllDirections: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_30.png' },
+    pathTunnel: { file: 'assets/tiles/kenney_isometric-city/PNG/cityTiles_026.png' },
 
     // Player character
     player: { file: 'assets/tiles/kenney_mini-characters/Previews/character-male-a.png' }, // Placeholder if exists, otherwise fallback to shape

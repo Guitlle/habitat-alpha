@@ -243,7 +243,12 @@ const App: React.FC = () => {
       );
       case ToolType.CONSOLE: return <ConsoleTool />;
       case ToolType.WIKIPEDIA: return <WikipediaExplorer initialQuery={wikiQuery} />;
-      case ToolType.TERRAIN: return <TerrainExplorer />;
+      case ToolType.TERRAIN: return (
+        <TerrainExplorer
+          fileTree={fileTree}
+          fileActions={{ openFile: fileActions.openFile }}
+        />
+      );
       case ToolType.CALCULATOR: return (
         <GeoGebraGrapher
           appName="graphing"

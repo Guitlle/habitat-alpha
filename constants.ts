@@ -6,7 +6,7 @@ export const TOOLS = [
   { id: ToolType.CHAT, label: 'Chat Assistant', icon: MessageSquare },
   // { id: ToolType.MEMORY, label: 'Memory Graph', icon: Network },
   { id: ToolType.WORK, label: 'Work Board', icon: Briefcase },
-  // { id: ToolType.FILES, label: 'File Explorer', icon: FolderOpen },
+  { id: ToolType.FILES, label: 'File Explorer', icon: FolderOpen },
   { id: ToolType.CALENDAR, label: 'Schedule', icon: Calendar },
   // { id: ToolType.CONSOLE, label: 'Dev Console', icon: Terminal },
   { id: ToolType.WIKIPEDIA, label: 'Wikipedia', icon: Globe },

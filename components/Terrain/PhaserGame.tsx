@@ -6,13 +6,31 @@ import MainScene from './scenes/MainScene';
 interface PhaserGameProps {
     height?: number | string;
     width?: number | string;
+    nodes?: any[]; // FileNode[] - using any to avoid import cycles or strict typing issues for now, or import FileNode
+    onOpenFile?: (node: any) => void;
+    onNavigate?: (folderId: string) => void;
 }
 
 // Global variable to hold the single game instance across mounts
 let globalGame: Phaser.Game | null = null;
 
-const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%' }) => {
+const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%', nodes = [], onOpenFile, onNavigate }) => {
     const gameContainerRef = useRef<HTMLDivElement>(null);
+
+    // Effect to update scene when nodes change
+    useEffect(() => {
+        if (globalGame && globalGame.scene) {
+            const scene = globalGame.scene.getScene('MainScene') as any; // Cast to access custom methods
+            if (scene && scene.loadLevel) {
+                scene.loadLevel(nodes);
+            }
+            // Also update callbacks
+            if (scene) {
+                scene.onOpenFile = onOpenFile;
+                scene.onNavigate = onNavigate;
+            }
+        }
+    }, [nodes, onOpenFile, onNavigate]);
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -47,6 +65,19 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
                     }
                 };
                 globalGame = new Phaser.Game(config);
+
+                // Pass initial data once scene is ready
+                // We can't easily pass it in constructor config for AUTO scene start
+                // But MainScene can pull from a global or we use an event.
+                // Or simplified: just wait for the useEffect [nodes] to fire? 
+                // The useEffect [nodes] might fire before game is ready.
+                // Let's add a "ready" event listener or just rely on the effect retrying or duplicate call.
+
+                // Actual robust way: Use registry
+                globalGame.registry.set('initialNodes', nodes);
+                globalGame.registry.set('onOpenFile', onOpenFile);
+                globalGame.registry.set('onNavigate', onNavigate);
+
             } else {
                 // Subsequent loads: Resume and Reparent
                 if (globalGame.canvas && !container.contains(globalGame.canvas)) {
@@ -64,6 +95,14 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
                 // We do NOT call refresh() because it relies on the parent's observed size which might lag or be incorrect
                 // Instead we explicitly resize to the known client dimensions
                 globalGame.scale.resize(clientWidth, clientHeight);
+
+                // Update Scene Data immediately on resume
+                const scene = globalGame.scene.getScene('MainScene') as any;
+                if (scene && scene.loadLevel) {
+                    scene.loadLevel(nodes);
+                    scene.onOpenFile = onOpenFile;
+                    scene.onNavigate = onNavigate;
+                }
             }
         };
 
@@ -72,8 +111,6 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
             for (const entry of entries) {
                 if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
                     initOrResumeGame();
-                    // Once initialized/resumed with valid size, we can disconnect if we only cared about the initial 0-size check,
-                    // but keeping it allows responding to dynamic resizing of the panel.
                 }
             }
         });
@@ -90,7 +127,7 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
                 globalGame.loop.sleep();
             }
         };
-    }, []);
+    }, []); // Empty dependency array for init, but we handle updates in separate effect
 
     return (
         <div
