@@ -1,7 +1,9 @@
+import { act } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from './App';
 import { supabase } from './services/supabase';
+import { syncService } from './services/syncService';
 
 // Mock Supabase
 vi.mock('./services/supabase', () => ({
@@ -199,5 +201,92 @@ describe('App Component', () => {
         await waitFor(() => {
             expect(supabase.auth.signOut).toHaveBeenCalled();
         });
+    });
+
+    it('shows syncing indicator during login and hides it after success', async () => {
+        // Mock user
+        const mockUser = { id: 'test-user-id', email: 'test@example.com' };
+        (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
+
+        // Capture callback
+        let authCallback: any;
+        (supabase.auth.onAuthStateChange as any).mockImplementation((cb: any) => {
+            authCallback = cb;
+            return { data: { subscription: { unsubscribe: vi.fn() } } };
+        });
+
+        // Create a deferred promise to control sync timing
+        let resolveSync: (val: boolean) => void;
+        const syncPromise = new Promise<boolean>((resolve) => {
+            resolveSync = resolve;
+        });
+        (syncService.pullAll as any).mockReturnValue(syncPromise);
+
+        render(<App />);
+
+        // Trigger Login Event
+        act(() => {
+            if (authCallback) {
+                authCallback('SIGNED_IN', { user: mockUser });
+            }
+        });
+
+        // Should show syncing
+        const syncingIndicator = await screen.findByText(/Syncing.../i);
+        expect(syncingIndicator).toBeInTheDocument();
+
+        // Resolve sync
+        await act(async () => {
+            resolveSync!(true);
+            await syncPromise;
+        });
+
+        // Should eventually disappear.
+        await waitFor(() => {
+            expect(screen.queryByText(/Syncing.../i)).not.toBeInTheDocument();
+        });
+    });
+
+    it('hides syncing indicator even if sync fails (Error Handling Check)', async () => {
+        const mockUser = { id: 'test-user-id', email: 'test@example.com' };
+        (supabase.auth.getSession as any).mockResolvedValue({ data: { session: null } });
+
+        // Mock sync failure
+        (syncService.pullAll as any).mockRejectedValue(new Error('Sync Failed'));
+
+        let authCallback: any;
+        (supabase.auth.onAuthStateChange as any).mockImplementation((cb: any) => {
+            authCallback = cb;
+            return { data: { subscription: { unsubscribe: vi.fn() } } };
+        });
+
+        // Create a deferred promise to control sync timing
+        let rejectSync: (err: Error) => void;
+        const syncPromise = new Promise<boolean>((_, reject) => {
+            rejectSync = reject;
+        });
+        (syncService.pullAll as any).mockReturnValue(syncPromise);
+
+        render(<App />);
+
+        act(() => {
+            if (authCallback) {
+                authCallback('SIGNED_IN', { user: mockUser });
+            }
+        });
+
+        // Should show syncing
+        expect(await screen.findByText(/Syncing.../i)).toBeInTheDocument();
+
+        // Reject sync
+        await act(async () => {
+            rejectSync!(new Error('Sync Failed'));
+            try { await syncPromise; } catch { /* ignore */ }
+        });
+
+        // Should eventually disappear.
+        await waitFor(() => {
+            expect(screen.queryByText(/Syncing.../i)).not.toBeInTheDocument();
+        }, { timeout: 2000 });
     });
 });

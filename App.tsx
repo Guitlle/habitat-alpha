@@ -113,18 +113,23 @@ const App: React.FC = () => {
 
         if (session?.user) {
           setIsSyncing(true);
-          const myTeam = await teamService.getMyTeam();
-          setTeam(myTeam);
-          await syncService.pullAll(session.user.id);
-          // Refresh data from DB after pull
-          const updated = await db.getAllData();
-          setWorkData(updated.workData);
-          setFlatFiles(updated.files);
-          setEvents(updated.events);
-          setSchedule(updated.schedule);
-          setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
-          if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
-          setIsSyncing(false);
+          try {
+            const myTeam = await teamService.getMyTeam();
+            setTeam(myTeam);
+            await syncService.pullAll(session.user.id);
+            // Refresh data from DB after pull
+            const updated = await db.getAllData();
+            setWorkData(updated.workData);
+            setFlatFiles(updated.files);
+            setEvents(updated.events);
+            setSchedule(updated.schedule);
+            setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
+            if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
+          } catch (syncErr) {
+            console.error("Sync failed during initialization:", syncErr);
+          } finally {
+            setIsSyncing(false);
+          }
         }
       } catch (err) {
         console.error("Failed to initialize database:", err);
@@ -138,17 +143,22 @@ const App: React.FC = () => {
       if (session?.user) {
         setIsAuthModalOpen(false); // Close modal on successful login (link or code)
         setIsSyncing(true);
-        const myTeam = await teamService.getMyTeam();
-        setTeam(myTeam);
-        await syncService.pullAll(session.user.id);
-        const updated = await db.getAllData();
-        setWorkData(updated.workData);
-        setFlatFiles(updated.files);
-        setEvents(updated.events);
-        setSchedule(updated.schedule);
-        setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
-        if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
-        setIsSyncing(false);
+        try {
+          const myTeam = await teamService.getMyTeam();
+          setTeam(myTeam);
+          await syncService.pullAll(session.user.id);
+          const updated = await db.getAllData();
+          setWorkData(updated.workData);
+          setFlatFiles(updated.files);
+          setEvents(updated.events);
+          setSchedule(updated.schedule);
+          setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
+          if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
+        } catch (syncErr) {
+          console.error("Sync failed on auth state change:", syncErr);
+        } finally {
+          setIsSyncing(false);
+        }
       }
     });
 
