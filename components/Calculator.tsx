@@ -14,6 +14,8 @@ interface GeoGebraProps {
 declare global {
   interface Window {
     GGBApplet: any;
+    ggbApplet: any;
+    ggbOnInit: () => void;
   }
 }
 
@@ -29,6 +31,37 @@ const GeoGebraGrapher: React.FC<GeoGebraProps> = ({
   const scriptId = 'geogebra-deploy-script';
 
   useEffect(() => {
+    // Define the global callback for GeoGebra initialization
+    // We use a unique name or strict 'ggbOnInit' as required by GGB
+    // For simplicity, we'll use 'ggbOnInit' and manage it carefully
+    window.ggbOnInit = () => {
+      const applet = window.ggbApplet;
+      if (!applet) return;
+
+      // Restore state if exists
+      const savedState = localStorage.getItem('ggb_state_base64');
+      if (savedState) {
+        applet.setBase64(savedState);
+      }
+
+      // Save functionality with debounce
+      let timeoutId: NodeJS.Timeout;
+      const saveState = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          applet.getBase64((base64: string) => {
+            localStorage.setItem('ggb_state_base64', base64);
+          });
+        }, 1000);
+      };
+
+      // Register listeners to trigger save
+      applet.registerAddListener(saveState);
+      applet.registerRemoveListener(saveState);
+      applet.registerUpdateListener(saveState);
+      applet.registerStoreUndoListener(saveState);
+    };
+
     const loadApplet = () => {
       if (window.GGBApplet && containerRef.current) {
         const params = {
@@ -39,7 +72,8 @@ const GeoGebraGrapher: React.FC<GeoGebraProps> = ({
           showAlgebraInput,
           showMenuBar,
           playButton: false,
-          scale: 0.75
+          scale: 0.75,
+          appletOnLoad: window.ggbOnInit,
         };
 
         const ggbApplet = new window.GGBApplet(params, true);
@@ -59,6 +93,12 @@ const GeoGebraGrapher: React.FC<GeoGebraProps> = ({
       // If script is already there, wait a bit or check if ready
       loadApplet();
     }
+
+    return () => {
+      // Cleanup global callback if needed, though GGB might keep running
+      // Ideally we'd remove listeners but GGB API makes that hard from here without keeping the applet ref
+      delete window.ggbOnInit;
+    };
   }, [appName, width, height, showToolBar, showAlgebraInput, showMenuBar]);
 
   return (
