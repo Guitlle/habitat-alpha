@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import { Message } from '../types';
 import { Send, User, Bot, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -11,6 +11,27 @@ interface ChatInterfaceProps {
   historyOnly?: boolean;
   minimal?: boolean;
 }
+
+const MessageItem = memo(({ msg }: { msg: Message }) => {
+  return (
+    <div
+      className={`flex items-start gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+    >
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'
+        }`}>
+        {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+      </div>
+      <div className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm leading-relaxed markdown-content ${msg.role === 'user'
+        ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-900 dark:text-indigo-100 border border-indigo-200 dark:border-indigo-500/30'
+        : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+        }`}
+        dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }}
+      />
+    </div>
+  );
+});
+
+MessageItem.displayName = 'MessageItem';
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages,
@@ -44,29 +65,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Messages */}
       {!minimal && (
         <div
-          ref={scrollContainerRef}
           className="flex-1 overflow-y-auto p-4 space-y-6"
         >
           <div className="flex justify-center">
             <span className="text-[10px] text-gray-400 dark:text-gray-600 uppercase tracking-wider font-semibold">AI Assistant Connected</span>
           </div>
           {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex items-start gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'
-                }`}>
-                {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
-              </div>
-
-              <div className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm leading-relaxed markdown-content ${msg.role === 'user'
-                ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-900 dark:text-indigo-100 border border-indigo-200 dark:border-indigo-500/30'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                }`}
-                dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }}
-              />
-            </div>
+            <MessageItem key={msg.id} msg={msg} />
           ))}
           {isThinking && (
             <div className="flex items-start gap-4">
