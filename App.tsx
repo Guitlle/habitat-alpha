@@ -198,7 +198,10 @@ const App: React.FC = () => {
             deleteProject: projectActions.deleteProject,
             addTask: projectActions.addTask,
             updateTask: projectActions.updateTask,
-            deleteTask: projectActions.deleteTask
+            deleteTask: projectActions.deleteTask,
+            addEpic: projectActions.addEpic,
+            updateEpic: projectActions.updateEpic,
+            deleteEpic: projectActions.deleteEpic
           }}
         />
       );

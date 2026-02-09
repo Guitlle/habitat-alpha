@@ -74,7 +74,13 @@ export const translations = {
       delete_task_title: 'Delete Task Permanently',
       delete_task_msg: 'This task will be removed forever.',
       archive_task_title: 'Archive Task',
-      archive_task_msg: 'This task will be moved to the archive.'
+      archive_task_msg: 'This task will be moved to the archive.',
+      epics: 'Epics',
+      manage_epics: 'Manage Epics',
+      new_epic: 'New Epic',
+      edit_epic: 'Edit Epic',
+      delete_epic_title: 'Delete Epic Permanently',
+      delete_epic_msg: 'Are you sure you want to delete "{title}"? associated tasks will lose their epic reference.',
     },
     files: {
       explorer: 'Explorer',
@@ -214,7 +220,13 @@ export const translations = {
       delete_task_title: 'Eliminar Tarea',
       delete_task_msg: 'Esta tarea será eliminada para siempre.',
       archive_task_title: 'Archivar Tarea',
-      archive_task_msg: 'Esta tarea será movida al archivo.'
+      archive_task_msg: 'Esta tarea será movida al archivo.',
+      epics: 'Épicas',
+      manage_epics: 'Gestionar Épicas',
+      new_epic: 'Nueva Épica',
+      edit_epic: 'Editar Épica',
+      delete_epic_title: 'Eliminar Épica Permanentemente',
+      delete_epic_msg: '¿Estás seguro de que quieres eliminar "{title}"? Las tareas asociadas perderán su referencia de épica.',
     },
     files: {
       explorer: 'Explorador',

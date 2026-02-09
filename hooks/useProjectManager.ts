@@ -48,6 +48,18 @@ export const useProjectManager = (userId?: string, teamId?: string) => {
         setWorkData(prev => ({ ...prev, epics: [...prev.epics, epic] }));
     }, [userId, teamId]);
 
+    const handleUpdateEpic = useCallback(async (epic: Epic) => {
+        await db.updateEpic(epic);
+        if (userId) await syncService.push('epics', epic, userId, teamId);
+        setWorkData(prev => ({ ...prev, epics: prev.epics.map(e => e.id === epic.id ? epic : e) }));
+    }, [userId, teamId]);
+
+    const handleDeleteEpic = useCallback(async (id: string) => {
+        await db.deleteEpic(id);
+        if (userId) await syncService.delete('epics', id);
+        setWorkData(prev => ({ ...prev, epics: prev.epics.filter(e => e.id !== id) }));
+    }, [userId]);
+
     return {
         workData,
         setWorkData,
@@ -58,7 +70,9 @@ export const useProjectManager = (userId?: string, teamId?: string) => {
             addTask: handleAddTask,
             updateTask: handleUpdateTask,
             deleteTask: handleDeleteTask,
-            addEpic: handleAddEpic
+            addEpic: handleAddEpic,
+            updateEpic: handleUpdateEpic,
+            deleteEpic: handleDeleteEpic
         }
     };
 };

@@ -174,6 +174,24 @@ export const db = {
             tx.onerror = () => reject(tx.error);
         });
     },
+    updateEpic: async (epic: Epic) => {
+        const database = await db.open();
+        const tx = database.transaction('epics', 'readwrite');
+        tx.objectStore('epics').put(epic);
+        return new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    },
+    deleteEpic: async (id: string) => {
+        const database = await db.open();
+        const tx = database.transaction('epics', 'readwrite');
+        tx.objectStore('epics').delete(id);
+        return new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    },
 
     // --- File CRUD ---
     addFile: async (file: FileNode) => {

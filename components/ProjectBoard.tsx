@@ -7,6 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import StatusColumn from './ProjectBoard/StatusColumn';
 import TaskModal from './ProjectBoard/TaskModal';
 import ProjectModal from './ProjectBoard/ProjectModal';
+import EpicModal from './ProjectBoard/EpicModal';
 import ConfirmationModal from './ProjectBoard/ConfirmationModal';
 
 interface ProjectBoardProps {
@@ -18,6 +19,9 @@ interface ProjectBoardProps {
     addTask: (t: Task) => void;
     updateTask: (t: Task) => void;
     deleteTask: (id: string) => void;
+    addEpic: (e: Epic) => void;
+    updateEpic: (e: Epic) => void;
+    deleteEpic: (id: string) => void;
   };
 }
 
@@ -26,6 +30,8 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isEpicModalOpen, setIsEpicModalOpen] = useState(false);
+  const [showEpicsPanel, setShowEpicsPanel] = useState(false);
 
   // View Preferences
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
@@ -34,6 +40,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
   // Edit States
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingEpic, setEditingEpic] = useState<Epic | null>(null);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -48,6 +55,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
   // Form States
   const [taskForm, setTaskForm] = useState<Partial<Task>>({ title: '', description: '', status: TaskStatus.TODO });
   const [projectForm, setProjectForm] = useState<Partial<Project>>({ title: '', description: '', goal: '' });
+  const [epicForm, setEpicForm] = useState<Partial<Epic>>({ title: '', description: '' });
 
   // Initialize selected project
   useEffect(() => {
@@ -142,6 +150,20 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
     actions.updateTask({ ...task, archived: false });
   };
 
+  const promptDeleteEpic = (epic: Epic) => {
+    setConfirmModal({
+      isOpen: true,
+      title: t.work.delete_epic_title,
+      message: t.work.delete_epic_msg.replace('{title}', epic.title),
+      actionLabel: t.common.delete,
+      isDestructive: true,
+      onConfirm: () => {
+        actions.deleteEpic(epic.id);
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
   // --- Form Handlers ---
 
   const openNewTaskModal = (status?: TaskStatus) => {
@@ -171,6 +193,18 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
     setEditingProject(project);
     setProjectForm({ ...project });
     setIsProjectModalOpen(true);
+  };
+
+  const openNewEpicModal = () => {
+    setEditingEpic(null);
+    setEpicForm({ title: '', description: '', projectId: selectedProjectId });
+    setIsEpicModalOpen(true);
+  };
+
+  const openEditEpicModal = (epic: Epic) => {
+    setEditingEpic(epic);
+    setEpicForm({ ...epic });
+    setIsEpicModalOpen(true);
   };
 
   const handleTaskSubmit = (e: React.FormEvent) => {
@@ -206,6 +240,23 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
       setSelectedProjectId(newProject.id);
     }
     setIsProjectModalOpen(false);
+  };
+
+  const handleEpicSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!epicForm.title) return;
+
+    if (editingEpic) {
+      actions.updateEpic({ ...editingEpic, ...epicForm } as Epic);
+    } else {
+      const newEpic: Epic = {
+        id: `e-${Date.now()}`,
+        ...epicForm as any,
+        projectId: selectedProjectId
+      };
+      actions.addEpic(newEpic);
+    }
+    setIsEpicModalOpen(false);
   };
 
   return (
@@ -283,6 +334,48 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
           </button>
         </div>
       </div>
+
+      {/* Epics Management Bar */}
+      {activeProject && (
+        <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 flex-shrink-0">
+          <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-2 border-r border-gray-200 dark:border-gray-800 pr-4 mr-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                <Archive size={14} className="text-indigo-500" />
+                {t.work.epics}
+              </span>
+              <button
+                onClick={() => setShowEpicsPanel(!showEpicsPanel)}
+                className={`p-1 rounded text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all ${showEpicsPanel ? 'bg-indigo-50 text-indigo-500 rotate-90' : ''}`}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            <div className="flex gap-2 min-w-0">
+              {activeEpics.map(epic => (
+                <div key={epic.id} className="group relative flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  <span>{epic.title}</span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                    <button onClick={() => openEditEpicModal(epic)} className="p-0.5 text-gray-400 hover:text-indigo-500"><Edit size={10} /></button>
+                    <button onClick={() => promptDeleteEpic(epic)} className="p-0.5 text-gray-400 hover:text-red-500"><Trash2 size={10} /></button>
+                  </div>
+                </div>
+              ))}
+              {activeEpics.length === 0 && (
+                <span className="text-xs text-gray-400 italic">No epics defined</span>
+              )}
+            </div>
+          </div>
+
+          <button
+            onClick={openNewEpicModal}
+            className="ml-4 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 uppercase tracking-widest flex items-center gap-1 flex-shrink-0"
+          >
+            <Plus size={12} /> {t.work.new_epic}
+          </button>
+        </div>
+      )}
 
       {/* Goal Banner */}
       {activeProject && (
@@ -388,6 +481,16 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ data, actions }) => {
         editingProject={editingProject}
         projectForm={projectForm}
         setProjectForm={setProjectForm}
+      />
+
+      {/* Epic Modal */}
+      <EpicModal
+        isOpen={isEpicModalOpen}
+        onClose={() => setIsEpicModalOpen(false)}
+        onSubmit={handleEpicSubmit}
+        editingEpic={editingEpic}
+        epicForm={epicForm}
+        setEpicForm={setEpicForm}
       />
     </div>
   );
