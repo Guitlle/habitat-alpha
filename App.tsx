@@ -46,6 +46,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'update_password'>('signin');
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Custom Hooks
@@ -138,27 +139,45 @@ const App: React.FC = () => {
     initData();
 
     // Listener for Auth Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        setIsAuthModalOpen(false); // Close modal on successful login (link or code)
-        setIsSyncing(true);
-        try {
-          const myTeam = await teamService.getMyTeam();
-          setTeam(myTeam);
-          await syncService.pullAll(session.user.id);
-          const updated = await db.getAllData();
-          setWorkData(updated.workData);
-          setFlatFiles(updated.files);
-          setEvents(updated.events);
-          setSchedule(updated.schedule);
-          setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
-          if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
-        } catch (syncErr) {
-          console.error("Sync failed on auth state change:", syncErr);
-        } finally {
-          setIsSyncing(false);
+
+      const isRecovery = event === 'PASSWORD_RECOVERY' || window.location.hash.includes('type=recovery');
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update_password');
+        setIsAuthModalOpen(true);
+      } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (session?.user) {
+          // If it's a recovery flow, keep the modal open!
+          if (!isRecovery) {
+            setIsAuthModalOpen(false);
+          } else {
+            // If we are in recovery but modal is not open, open it
+            setAuthMode('update_password');
+            setIsAuthModalOpen(true);
+          }
+
+          setIsSyncing(true);
+          try {
+            const myTeam = await teamService.getMyTeam();
+            setTeam(myTeam);
+            await syncService.pullAll(session.user.id);
+            const updated = await db.getAllData();
+            setWorkData(updated.workData);
+            setFlatFiles(updated.files);
+            setEvents(updated.events);
+            setSchedule(updated.schedule);
+            setMemoryData({ nodes: updated.memoryNodes, links: updated.memoryLinks });
+            if (updated.chatMessages.length > 0) setMessages(updated.chatMessages);
+          } catch (syncErr) {
+            console.error("Sync failed on auth state change:", syncErr);
+          } finally {
+            setIsSyncing(false);
+          }
         }
+      } else if (event === 'SIGNED_OUT') {
+        setTeam(null);
       }
     });
 
@@ -316,7 +335,10 @@ const App: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={() => {
+                setAuthMode('signin');
+                setIsAuthModalOpen(true);
+              }}
               className="p-3 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all relative group"
             >
               <LogIn size={22} />
@@ -542,7 +564,11 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        initialMode={authMode}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
 
       {isSyncing && (
         <div className="fixed bottom-4 right-4 z-50 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold animate-pulse">

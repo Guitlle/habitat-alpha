@@ -4,18 +4,40 @@ import { X, Mail, Lock, User, Loader2, Command } from 'lucide-react';
 
 interface AuthModalProps {
     isOpen: boolean;
+    initialMode?: 'signin' | 'signup' | 'update_password';
     onClose: () => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-    const [isLogin, setIsLogin] = useState(true);
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'signin', onClose }) => {
+    const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
     const [loading, setLoading] = useState(false);
     const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
     const [otpSent, setOtpSent] = useState(false);
     const [otp, setOtp] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            if (initialMode === 'signup') {
+                setIsLogin(false);
+                setIsUpdatingPassword(false);
+            } else if (initialMode === 'update_password') {
+                setIsUpdatingPassword(true);
+                setIsLogin(false);
+            } else {
+                setIsLogin(true);
+                setIsUpdatingPassword(false);
+            }
+            setIsForgotPassword(false);
+            setError(null);
+            setSuccessMessage(null);
+        }
+    }, [isOpen, initialMode]);
 
     if (!isOpen) return null;
 
@@ -23,30 +45,40 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
+        setSuccessMessage(null);
 
         try {
-            if (authMethod === 'otp') {
+            if (isUpdatingPassword) {
+                const { error } = await supabase.auth.updateUser({ password });
+                if (error) throw error;
+                setSuccessMessage('Password updated successfully! You can now sign in.');
+                setIsUpdatingPassword(false);
+                setIsLogin(true);
+            } else if (isForgotPassword) {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/`,
+                });
+                if (error) throw error;
+                setSuccessMessage('Reset link sent! Please check your email.');
+            } else if (authMethod === 'otp') {
                 if (!otpSent) {
-                    // Send OTP
                     const { error } = await supabase.auth.signInWithOtp({ email });
                     if (error) throw error;
                     setOtpSent(true);
-                    alert('Code sent to your email!');
+                    setSuccessMessage('Code sent to your email!');
                 } else {
-                    // Verify OTP
                     const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
                     if (error) throw error;
                     onClose();
                 }
             } else {
-                // Password Flow
                 if (isLogin) {
                     const { error } = await supabase.auth.signInWithPassword({ email, password });
                     if (error) throw error;
                 } else {
                     const { error } = await supabase.auth.signUp({ email, password });
                     if (error) throw error;
-                    alert('Success! Please check your email for confirmation.');
+                    setSuccessMessage('Success! Please check your email for confirmation.');
                 }
                 onClose();
             }
@@ -72,11 +104,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         <Command size={28} className="text-white" />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {otpSent ? 'Enter Code' : (isLogin ? 'Welcome Back' : 'Create Account')}
+                        {isUpdatingPassword ? 'Update Password' : (isForgotPassword ? 'Reset Password' : (otpSent ? 'Enter Code' : (isLogin ? 'Welcome Back' : 'Create Account')))}
                     </h2>
 
                     {/* Method Toggle */}
-                    {!otpSent && (
+                    {!otpSent && !isForgotPassword && !isUpdatingPassword && (
                         <div className="flex bg-gray-100 dark:bg-gray-900/50 p-1 rounded-lg mt-4 w-full">
                             <button
                                 onClick={() => setAuthMethod('password')}
@@ -123,9 +155,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     )}
 
                     {/* Password Input */}
-                    {authMethod === 'password' && (
+                    {(authMethod === 'password' || isUpdatingPassword) && !isForgotPassword && (
                         <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password</label>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                                {isUpdatingPassword ? 'New Password' : 'Password'}
+                            </label>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
@@ -134,6 +168,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                     placeholder="••••••••"
                                 />
                             </div>
+                            {isLogin && authMethod === 'password' && !isUpdatingPassword && (
+                                <div className="flex justify-end mt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsForgotPassword(true)}
+                                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                                    >
+                                        Forgot Password?
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -143,26 +188,53 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         </div>
                     )}
 
+                    {successMessage && (
+                        <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-xl flex items-center gap-3 text-green-600 dark:text-green-400 text-xs">
+                            <span>{successMessage}</span>
+                        </div>
+                    )}
+
                     <button
                         disabled={loading}
                         type="submit"
                         className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-400 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transform active:scale-[0.98]"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : (
-                            authMethod === 'otp'
-                                ? (otpSent ? 'Verify Code' : 'Send Code')
-                                : (isLogin ? 'Sign In' : 'Get Started')
+                            isUpdatingPassword ? 'Update Password' :
+                                isForgotPassword ? 'Send Reset Link' :
+                                    authMethod === 'otp'
+                                        ? (otpSent ? 'Verify Code' : 'Send Code')
+                                        : (isLogin ? 'Sign In' : 'Get Started')
                         )}
                     </button>
                 </form>
 
-                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-900 flex justify-center">
-                    <button
-                        onClick={() => setIsLogin(!isLogin)}
-                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"
-                    >
-                        {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-                    </button>
+                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-900 flex flex-col items-center gap-4">
+                    {isForgotPassword ? (
+                        <button
+                            onClick={() => {
+                                setIsForgotPassword(false);
+                                setSuccessMessage(null);
+                                setError(null);
+                            }}
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"
+                        >
+                            Back to Sign In
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => {
+                                setIsLogin(!isLogin);
+                                setIsUpdatingPassword(false);
+                                setIsForgotPassword(false);
+                                setSuccessMessage(null);
+                                setError(null);
+                            }}
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"
+                        >
+                            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
