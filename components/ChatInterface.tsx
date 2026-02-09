@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message } from '../types';
 import { Send, User, Bot, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { marked } from 'marked';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -42,7 +43,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     <div className="flex flex-col h-full bg-white dark:bg-gray-900 transition-colors duration-200">
       {/* Messages */}
       {!minimal && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-6"
+        >
           <div className="flex justify-center">
             <span className="text-[10px] text-gray-400 dark:text-gray-600 uppercase tracking-wider font-semibold">AI Assistant Connected</span>
           </div>
@@ -56,12 +60,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
 
-              <div className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm leading-relaxed ${msg.role === 'user'
-                  ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-900 dark:text-indigo-100 border border-indigo-200 dark:border-indigo-500/30'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                }`}>
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              </div>
+              <div className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm leading-relaxed markdown-content ${msg.role === 'user'
+                ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-900 dark:text-indigo-100 border border-indigo-200 dark:border-indigo-500/30'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+                }`}
+                dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }}
+              />
             </div>
           ))}
           {isThinking && (
