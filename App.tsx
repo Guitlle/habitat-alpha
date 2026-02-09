@@ -12,7 +12,7 @@ import ChatInterface from './components/ChatInterface';
 import FileEditorGroup from './components/FileEditorGroup';
 import ConsoleTool from './components/ConsoleTool';
 import WikipediaExplorer from './components/WikipediaExplorer';
-import TerrainExplorer from './components/TerrainExplorer';
+import TerrainExplorer from './components/Terrain/TerrainExplorer';
 import GeoGebraGrapher from './components/Calculator';
 import GroupChat from './components/GroupChat';
 import { supabase } from './services/supabase';
