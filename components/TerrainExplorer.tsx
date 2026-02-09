@@ -210,11 +210,11 @@ const TerrainExplorer: React.FC = () => {
   // Tile Colors
   const getTileColors = (type: Tile['type']) => {
     switch (type) {
-      case 'water': return { top: '#3b82f6', side: '#1d4ed8', stroke: '#1e40af' };
-      case 'sand': return { top: '#fde047', side: '#eab308', stroke: '#ca8a04' };
-      case 'grass': return { top: '#22c55e', side: '#15803d', stroke: '#14532d' };
-      case 'stone': return { top: '#94a3b8', side: '#64748b', stroke: '#475569' };
-      case 'snow': return { top: '#f8fafc', side: '#cbd5e1', stroke: '#94a3b8' };
+      case 'water': return { top: '#009eddfd', side: '#1d4ed8', stroke: '#1e40af' };
+      case 'sand': return { top: '#f7eaabff', side: '#eab308', stroke: '#ca8a04' };
+      case 'grass': return { top: '#63c587ff', side: '#15803d', stroke: '#14532d' };
+      case 'stone': return { top: '#cfcfcfff', side: '#64748b', stroke: '#475569' };
+      case 'snow': return { top: '#edf4fcff', side: '#cbd5e1', stroke: '#94a3b8' };
       default: return { top: '#666', side: '#444', stroke: '#333' };
     }
   };
