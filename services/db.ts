@@ -1,5 +1,4 @@
 import { WorkData, Project, Epic, Task, FileNode, CalendarEvent, ScheduleClass, MemoryNode, MemoryLink, Message } from '../types';
-import { initialWorkData, initialFiles, initialEvents } from './mockDataService';
 
 const DB_NAME = 'CognitiveWorkspaceDB';
 const DB_VERSION = 5; // Bumped version for Memory & Chat stores
@@ -51,49 +50,7 @@ export const db = {
 
     init: async (): Promise<{ workData: WorkData, files: FileNode[], events: CalendarEvent[], schedule: ScheduleClass[], memoryNodes: MemoryNode[], memoryLinks: MemoryLink[], chatMessages: Message[] }> => {
         const database = await db.open();
-        const tx = database.transaction(['projects', 'epics', 'tasks', 'files', 'events', 'schedule', 'memory_nodes', 'memory_links', 'chat_messages'], 'readwrite');
-
-        const projectsStore = tx.objectStore('projects');
-        const filesStore = tx.objectStore('files');
-        const eventsStore = tx.objectStore('events');
-
-        const pCountRequest = projectsStore.count();
-        const fCountRequest = filesStore.count();
-        const eCountRequest = eventsStore.count();
-
-        return new Promise((resolve, reject) => {
-            tx.oncomplete = async () => {
-                const allData = await db.getAllData(database);
-                resolve(allData);
-            };
-            tx.onerror = () => reject(tx.error);
-
-            pCountRequest.onsuccess = () => {
-                if (pCountRequest.result === 0) {
-                    console.log("Seeding Work Data...");
-                    initialWorkData.projects.forEach(p => projectsStore.add(p));
-                    const epicsStore = tx.objectStore('epics');
-                    initialWorkData.epics.forEach(e => epicsStore.add(e));
-                    const tasksStore = tx.objectStore('tasks');
-                    initialWorkData.tasks.forEach(t => tasksStore.add(t));
-                }
-            };
-
-            fCountRequest.onsuccess = () => {
-                if (fCountRequest.result === 0) {
-                    console.log("Seeding File Data...");
-                    const flatFiles = flattenFileTree(initialFiles);
-                    flatFiles.forEach(f => filesStore.add(f));
-                }
-            };
-
-            eCountRequest.onsuccess = () => {
-                if (eCountRequest.result === 0) {
-                    console.log("Seeding Calendar Data...");
-                    initialEvents.forEach(e => eventsStore.add(e));
-                }
-            };
-        });
+        return await db.getAllData(database);
     },
 
     getAllData: async (existingDb?: IDBDatabase): Promise<{ workData: WorkData, files: FileNode[], events: CalendarEvent[], schedule: ScheduleClass[], memoryNodes: MemoryNode[], memoryLinks: MemoryLink[], chatMessages: Message[] }> => {

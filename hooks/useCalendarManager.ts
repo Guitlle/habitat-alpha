@@ -2,10 +2,9 @@ import { useState, useCallback } from 'react';
 import { CalendarEvent, ScheduleClass } from '../types';
 import { db } from '../services/db';
 import { syncService } from '../services/syncService';
-import { initialEvents } from '../services/mockDataService';
 
 export const useCalendarManager = (userId?: string, teamId?: string) => {
-    const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [schedule, setSchedule] = useState<ScheduleClass[]>([]);
 
     const handleAddEvent = useCallback(async (event: CalendarEvent) => {
