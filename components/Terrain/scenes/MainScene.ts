@@ -7,7 +7,7 @@ export default class MainScene extends Phaser.Scene {
     private player!: Phaser.GameObjects.Container;
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private mapSize = 30;
-    private tileSize = 132; // Isometric tile width
+    private tileSize = 130; // Isometric tile width
     private tileHeight = 64; // Isometric tile height
 
     constructor() {
@@ -100,7 +100,7 @@ export default class MainScene extends Phaser.Scene {
                 else if (raw < -0.3) { type = 'sand'; height = 0.2; }
                 else if (raw < 0.5) { type = 'grass'; height = 0.5 + Math.random() * 0.2; }
                 else { type = 'stone'; height = 1.5 + Math.random(); }
-                height *= 0;
+                height *= 0.25;
                 data[x][y] = { type, height };
             }
         }
