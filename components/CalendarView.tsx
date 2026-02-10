@@ -3,6 +3,7 @@ import { CalendarEvent, ScheduleClass } from '../types';
 import { ChevronLeft, ChevronRight, Plus, X, Calendar as CalendarIcon, Clock, Trash2, List } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import ScheduleEditor from './Calendar/ScheduleEditor';
+import Modal from './ui/Modal';
 
 interface CalendarViewProps {
   events: CalendarEvent[];
@@ -187,44 +188,44 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, schedule, actions }
       </div>
 
       {/* Event Modal */}
-      {isModalOpen && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm p-4">
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{editingEvent ? t.calendar.edit_event : t.calendar.new_event}</h3>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-gray-900 dark:hover:text-white"><X size={20} /></button>
+      {/* Event Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingEvent ? t.calendar.edit_event : t.calendar.new_event}
+        className="w-full max-w-sm"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.title}</label>
+              <input autoFocus required type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2.5 text-sm text-gray-900 dark:text-white focus:border-indigo-500 outline-none" placeholder={t.calendar.placeholders.event_title} />
             </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.title}</label>
-                <input autoFocus required type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2.5 text-sm text-gray-900 dark:text-white focus:border-indigo-500 outline-none" placeholder={t.calendar.placeholders.event_title} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.start}</label>
-                  <input required type="datetime-local" value={toInputString(formData.start)} onChange={e => setFormData({ ...formData, start: new Date(e.target.value) })} className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2 text-xs text-gray-700 dark:text-gray-300 focus:border-indigo-500 outline-none" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.end}</label>
-                  <input required type="datetime-local" value={toInputString(formData.end)} onChange={e => setFormData({ ...formData, end: new Date(e.target.value) })} className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2 text-xs text-gray-700 dark:text-gray-300 focus:border-indigo-500 outline-none" />
-                </div>
+                <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.start}</label>
+                <input required type="datetime-local" value={toInputString(formData.start)} onChange={e => setFormData({ ...formData, start: new Date(e.target.value) })} className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2 text-xs text-gray-700 dark:text-gray-300 focus:border-indigo-500 outline-none" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.type}</label>
-                <div className="flex gap-2">
-                  {['meeting', 'sprint', 'deadline'].map(type => (
-                    <button key={type} type="button" onClick={() => setFormData({ ...formData, type: type as any })} className={`flex-1 py-2 text-xs rounded-lg border capitalize transition-all ${formData.type === type ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 text-gray-500'}`}>{t.calendar.event_types[type as keyof typeof t.calendar.event_types]}</button>
-                  ))}
-                </div>
+                <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.end}</label>
+                <input required type="datetime-local" value={toInputString(formData.end)} onChange={e => setFormData({ ...formData, end: new Date(e.target.value) })} className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-2 text-xs text-gray-700 dark:text-gray-300 focus:border-indigo-500 outline-none" />
               </div>
             </div>
-            <div className="mt-8 flex justify-end gap-3">
-              <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-medium text-gray-500">{t.common.cancel}</button>
-              <button type="submit" className="px-6 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg transition-all shadow-lg">{t.common.save}</button>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1.5 uppercase font-bold tracking-wider">{t.calendar.type}</label>
+              <div className="flex gap-2">
+                {['meeting', 'sprint', 'deadline'].map(type => (
+                  <button key={type} type="button" onClick={() => setFormData({ ...formData, type: type as any })} className={`flex-1 py-2 text-xs rounded-lg border capitalize transition-all ${formData.type === type ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 text-gray-500'}`}>{t.calendar.event_types[type as keyof typeof t.calendar.event_types]}</button>
+                ))}
+              </div>
             </div>
-          </form>
-        </div>
-      )}
+          </div>
+          <div className="mt-8 flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-medium text-gray-500">{t.common.cancel}</button>
+            <button type="submit" className="px-6 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg transition-all shadow-lg">{t.common.save}</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
