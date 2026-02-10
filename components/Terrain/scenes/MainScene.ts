@@ -55,6 +55,9 @@ export default class MainScene extends Phaser.Scene {
         if (this.input.keyboard) {
             this.cursors = this.input.keyboard.createCursorKeys();
             this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+
+            // CRITICAL: Stop Phaser from capturing text keys so standard HTML inputs work
+            this.input.keyboard.removeCapture(['SPACE', 'ENTER', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'SHIFT']);
         }
     }
 
@@ -201,6 +204,15 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private checkInteractions(time: number) {
+        // Ignore game input if user is typing in a form
+        if (document.activeElement && (
+            document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA' ||
+            (document.activeElement as HTMLElement).isContentEditable
+        )) {
+            return;
+        }
+
         if (!this.player || !this.mapData || !this.enterKey) return;
 
         // Check if Enter key was just pressed
@@ -293,6 +305,15 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private handleInput() {
+        // Ignore game input if user is typing in a form
+        if (document.activeElement && (
+            document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA' ||
+            (document.activeElement as HTMLElement).isContentEditable
+        )) {
+            return;
+        }
+
         if (!this.cursors || !this.mapData) return;
 
         const speed = 2.5;

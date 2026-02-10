@@ -120,6 +120,9 @@ export const useFileManager = (
 
     const handleDirtyChange = useCallback((fileId: string, isDirty: boolean) => {
         setDirtyFileIds(prev => {
+            const hasIt = prev.has(fileId);
+            if (hasIt === isDirty) return prev; // No change, return same Ref -> No re-render!
+
             const next = new Set(prev);
             if (isDirty) next.add(fileId);
             else next.delete(fileId);
@@ -161,7 +164,7 @@ export const useFileManager = (
         return tree;
     }, [flatFiles, teamId]);
 
-    return {
+    return useMemo(() => ({
         flatFiles,
         setFlatFiles,
         openFiles,
@@ -178,5 +181,5 @@ export const useFileManager = (
             deleteFile: handleDeleteFile,
             dirtyChange: handleDirtyChange
         }
-    };
+    }), [flatFiles, openFiles, activeFileId, dirtyFileIds, fileTree, handleOpenFile, handleCloseTab, handleAddFile, handleUpdateFile, handleSaveFileContent, handleDeleteFile, handleDirtyChange]);
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ToolType, Panel } from './types';
 import { TOOLS } from './constants';
 import { db } from './services/db';
@@ -50,7 +50,7 @@ const App: React.FC = () => {
   } = useFloatingPanels();
 
   // Adapter for old code that expects array of panels
-  const activePanelsList = Object.values(panels).map(p => ({ id: p.id, type: p.type, title: p.title, data: p.data }));
+  const activePanelsList = useMemo(() => Object.values(panels).map(p => ({ id: p.id, type: p.type, title: p.title, data: p.data })), [panels]);
 
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -64,7 +64,7 @@ const App: React.FC = () => {
   const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager(user?.id, team?.id);
 
   // Helper to bridge the new openPanel with the old one expected by hooks
-  const setActivePanelsBridge = (action: any) => {
+  const setActivePanelsBridge = React.useCallback((action: any) => {
     const prev = activePanelsList;
     const next = typeof action === 'function' ? action(prev) : action;
 
@@ -81,7 +81,7 @@ const App: React.FC = () => {
         closePanel(p.id);
       }
     });
-  };
+  }, [activePanelsList, openPanel, panels, closePanel]);
 
   const {
     fileTree,
