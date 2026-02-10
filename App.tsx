@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ToolType, Panel } from './types';
 import { TOOLS } from './constants';
@@ -20,7 +21,7 @@ import { syncService } from './services/syncService';
 import { teamService, Team } from './services/teamService';
 import AuthModal from './components/Modals/AuthModal';
 import { User } from '@supabase/supabase-js';
-import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users, LogIn, LogOut, Loader2 } from 'lucide-react';
+import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users, LogIn, LogOut, Loader2, X } from 'lucide-react';
 
 // Contexts
 import { useLanguage } from './contexts/LanguageContext';
@@ -39,9 +40,8 @@ const App: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   // Lifted state to resolve dependency loop
-  const [activePanels, setActivePanels] = useState<Panel[]>([
-    { id: ToolType.TERRAIN, type: ToolType.TERRAIN }
-  ]);
+  // Start with empty panels (Terrain is background/base)
+  const [activePanels, setActivePanels] = useState<Panel[]>([]);
 
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -51,7 +51,7 @@ const App: React.FC = () => {
 
   // Custom Hooks
   const { workData, setWorkData, actions: projectActions } = useProjectManager(user?.id, team?.id);
-  const { memoryData, setMemoryData, actions: memoryActions } = useMemoryManager(user?.id); // Memory stays personal for now? Or team? Let's keep it personal as per plan unless asked.
+  const { memoryData, setMemoryData, actions: memoryActions } = useMemoryManager(user?.id);
   const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager(user?.id, team?.id);
 
   const {
@@ -68,8 +68,8 @@ const App: React.FC = () => {
     rightPanelTab,
     setRightPanelTab,
     chatWidth,
-    panelHeights,
-    isDraggingVertical,
+    // panelHeights, // no longer needed for floating
+    // isDraggingVertical, // no longer needed
     isMobile,
     isChatHistoryOpen,
     mainContentRef,
@@ -149,11 +149,9 @@ const App: React.FC = () => {
         setIsAuthModalOpen(true);
       } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         if (session?.user) {
-          // If it's a recovery flow, keep the modal open!
           if (!isRecovery) {
             setIsAuthModalOpen(false);
           } else {
-            // If we are in recovery but modal is not open, open it
             setAuthMode('update_password');
             setIsAuthModalOpen(true);
           }
@@ -243,12 +241,7 @@ const App: React.FC = () => {
       );
       case ToolType.CONSOLE: return <ConsoleTool />;
       case ToolType.WIKIPEDIA: return <WikipediaExplorer initialQuery={wikiQuery} />;
-      case ToolType.TERRAIN: return (
-        <TerrainExplorer
-          fileTree={fileTree}
-          fileActions={{ openFile: fileActions.openFile }}
-        />
-      );
+      // Terrain handled globally now
       case ToolType.CALCULATOR: return (
         <GeoGebraGrapher
           appName="graphing"
@@ -261,8 +254,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans overflow-hidden transition-colors duration-200 ${isDraggingVertical ? 'cursor-row-resize select-none' : ''}`}>
-      <aside className="w-16 flex flex-col items-center py-6 border-r border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-950 z-20 flex-shrink-0 transition-colors duration-200">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans overflow-hidden transition-colors duration-200">
+
+      {/* SIDEBAR (Leftmost) */}
+      <aside className="w-16 flex flex-col items-center py-6 border-r border-gray-200/50 dark:border-gray-800/50 bg-gray-100/90 dark:bg-gray-950/90 backdrop-blur-md z-30 flex-shrink-0 transition-colors duration-200">
         <div className="mb-8 p-2 bg-indigo-600 rounded-lg shadow-md">
           <Command size={24} className="text-white" />
         </div>
@@ -274,7 +269,7 @@ const App: React.FC = () => {
             WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)'
           }}
         >
-          {TOOLS.filter(t => t.id !== ToolType.CHAT).map((tool) => {
+          {TOOLS.filter(t => t.id !== ToolType.CHAT && t.id !== ToolType.TERRAIN).map((tool) => {
             const isActive = activePanels.some(p => p.id === tool.id);
             const translatedLabel = t.tools[tool.id as keyof typeof t.tools] || tool.label;
 
@@ -358,219 +353,84 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex overflow-hidden relative">
-        {isMobile ? (
-          <div className="flex-1 flex flex-col min-w-0 h-screen relative">
-            {/* Mobile Chat Tabs - TOP */}
-            <div className="flex border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex-shrink-0">
-              <button
-                onClick={() => {
-                  if (rightPanelTab === 'ai' && isChatHistoryOpen) {
-                    layoutActions.setChatHistoryOpen(false);
-                  } else {
-                    setRightPanelTab('ai');
-                    layoutActions.setChatHistoryOpen(true);
-                  }
-                }}
-                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
-                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-900/10'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400'
-                  }`}
-              >
-                <MessageSquare size={14} />
-                <span>AI CHAT</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (rightPanelTab === 'team' && isChatHistoryOpen) {
-                    layoutActions.setChatHistoryOpen(false);
-                  } else {
-                    setRightPanelTab('team');
-                    layoutActions.setChatHistoryOpen(true);
-                  }
-                }}
-                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
-                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-900/10'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400'
-                  }`}
-              >
-                <Users size={14} />
-                <span>TEAM CHAT</span>
-              </button>
-            </div>
+      {/* LEFT COLUMN: GAME + FLOATING PANELS */}
+      <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
+        {/* BASE LAYER: TERRAIN EXPLORER */}
+        <div className="flex-1 w-full h-full relative z-0">
+          <TerrainExplorer
+            fileTree={fileTree}
+            fileActions={{ openFile: fileActions.openFile }}
+          />
+        </div>
 
-            {/* Content Area */}
-            <div className="flex-1 relative overflow-hidden flex flex-col">
-              <section
-                ref={mainContentRef}
-                className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 relative min-w-0"
-              >
-                {activePanels.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                    <LayoutGrid size={48} className="mb-4 opacity-20" />
-                    <p className="text-sm">Select a tool from the sidebar</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col h-full w-full">
-                    {activePanels.map((panel, index) => (
-                      <React.Fragment key={panel.id}>
-                        <div
-                          style={{ height: `${panelHeights[index]}%` }}
-                          className="relative min-h-0 w-full"
-                        >
-                          <div className="absolute inset-0 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950">
-                            {activePanels.length > 1 && (
-                              <div className="absolute top-0 right-0 z-20 p-2">
-                                <button
-                                  onClick={() => layoutActions.closePanel(panel.id)}
-                                  className="bg-gray-200/80 dark:bg-gray-900/80 text-gray-500 hover:text-red-500 rounded p-1 backdrop-blur-sm"
-                                >
-                                  <AlertCircle size={12} className="rotate-45" />
-                                </button>
-                              </div>
-                            )}
-                            {renderPanelContent(panel)}
-                          </div>
-                        </div>
-                        {index < activePanels.length - 1 && <div className="h-px bg-gray-200 dark:border-gray-800" />}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              {/* Mobile Chat Overlay */}
-              {isChatHistoryOpen && (
-                <div className="absolute inset-0 bg-white dark:bg-gray-950 z-40 flex flex-col animate-in slide-in-from-bottom-2 duration-200">
-                  <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        {rightPanelTab === 'ai' ? 'AI Assistant' : 'Team Channel'}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => layoutActions.setChatHistoryOpen(false)}
-                      className="p-1 px-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                    >
-                      CLOSE
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    {rightPanelTab === 'ai' ? (
-                      <ChatInterface historyOnly messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
-                    ) : (
-                      <GroupChat historyOnly />
-                    )}
-                  </div>
-                </div>
-              )}
+        {/* OVERLAY LAYER: FLOATING PANELS */}
+        <div className="absolute inset-0 z-10 pointer-events-none p-4 flex gap-4 flex-wrap content-start">
+          {activePanels.map((panel) => (
+            <div key={panel.id} className="relative bg-white/95 dark:bg-gray-950/95 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl overflow-hidden w-full h-[400px] pointer-events-auto flex flex-col resize animate-in zoom-in-50 duration-200">
+              <div className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 cursor-move">
+                <span className="text-xs font-bold text-gray-500 uppercase px-2">{panel.title || panel.type}</span>
+                <button onClick={() => layoutActions.closePanel(panel.id)} className="p-1 hover:bg-red-500 hover:text-white rounded transition-colors">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto">
+                {renderPanelContent(panel)}
+              </div>
+              <div className="absolute bottom-1 right-1 w-3 h-3 cursor-nwse-resize opacity-50"></div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            {/* Mobile Input Area - BOTTOM */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800">
-              {rightPanelTab === 'ai' ? (
-                <ChatInterface minimal messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
-              ) : (
-                <GroupChat minimal />
-              )}
-            </div>
+      {/* RESIZE HANDLE */}
+      {!isMobile && (
+        <div
+          className="w-1.5 bg-gray-100/50 dark:bg-gray-900/50 border-l border-r border-gray-200/50 dark:border-gray-800/50 hover:bg-indigo-500 dark:hover:bg-indigo-600 cursor-col-resize z-40 flex flex-col justify-center items-center transition-colors shadow-lg backdrop-blur-sm"
+          onMouseDown={layoutActions.chatResizeStart}
+        >
+          <div className="h-12 w-0.5 bg-gray-300 dark:bg-gray-600 rounded-full pointer-events-none" />
+        </div>
+      )}
+
+      {/* RIGHT COLUMN: CHAT PANEL (Fixed/Resizable) */}
+      {!isMobile && (
+        <section
+          className="flex-shrink-0 flex flex-col bg-white/95 dark:bg-gray-900/95 border-l border-gray-200/50 dark:border-gray-800/50 shadow-2xl relative z-20 min-w-[300px] backdrop-blur-md transition-colors duration-200 h-full"
+          style={{ width: `${chatWidth}%` }}
+        >
+          {/* Tab Header */}
+          <div className="flex border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+            <button
+              onClick={() => setRightPanelTab('ai')}
+              className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+            >
+              <MessageSquare size={16} />
+              <span>AI</span>
+            </button>
+            <button
+              onClick={() => setRightPanelTab('team')}
+              className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+            >
+              <Users size={16} />
+              <span>Team</span>
+            </button>
           </div>
-        ) : (
-          /* DESKTOP LAYOUT (Original) */
-          <>
-            <section
-              ref={mainContentRef}
-              className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 relative min-w-0 transition-colors duration-200"
-            >
-              {activePanels.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <LayoutGrid size={48} className="mb-4 opacity-20" />
-                  <p className="text-sm">Select a tool from the sidebar to begin</p>
-                </div>
-              ) : (
-                <div className="flex flex-col h-full w-full">
-                  {activePanels.map((panel, index) => (
-                    <React.Fragment key={panel.id}>
-                      <div
-                        style={{ height: `${panelHeights[index]}%` }}
-                        className="relative min-h-0 w-full transition-[height] duration-0 ease-linear"
-                      >
-                        <div className="absolute inset-0 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950">
-                          {activePanels.length > 1 && (
-                            <div className="absolute top-0 right-0 z-20 p-2">
-                              <button
-                                onClick={() => layoutActions.closePanel(panel.id)}
-                                className="bg-gray-200/80 dark:bg-gray-900/80 hover:bg-red-100 dark:hover:bg-red-900/80 text-gray-500 hover:text-red-500 dark:hover:text-red-200 rounded p-1 transition-colors backdrop-blur-sm"
-                              >
-                                <AlertCircle size={12} className="rotate-45" />
-                              </button>
-                            </div>
-                          )}
-                          {renderPanelContent(panel)}
-                        </div>
-                      </div>
 
-                      {index < activePanels.length - 1 && (
-                        <div
-                          className="h-1.5 w-full bg-gray-100 dark:bg-gray-950 border-y border-gray-200 dark:border-gray-800 hover:bg-indigo-500/20 dark:hover:bg-indigo-600/50 hover:border-indigo-500/50 cursor-row-resize z-30 flex items-center justify-center transition-colors flex-shrink-0"
-                          onMouseDown={(e) => layoutActions.verticalResizeStart(index, e)}
-                        >
-                          <GripHorizontal size={12} className="text-gray-400 dark:text-gray-600" />
-                        </div>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <div
-              className="w-1.5 bg-gray-100 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 hover:bg-indigo-500 dark:hover:bg-indigo-600 cursor-col-resize z-50 flex flex-col justify-center items-center transition-colors shadow-xl"
-              onMouseDown={layoutActions.chatResizeStart}
-            >
-              <div className="h-12 w-0.5 bg-gray-300 dark:bg-gray-600 rounded-full pointer-events-none" />
-            </div>
-
-            <section
-              className="flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 shadow-2xl relative z-10 min-w-[300px] transition-colors duration-200"
-              style={{ width: `${chatWidth}%` }}
-            >
-              {/* Tab Header */}
-              <div className="flex border-b border-gray-200 dark:border-gray-800">
-                <button
-                  onClick={() => setRightPanelTab('ai')}
-                  className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'ai'
-                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
-                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
-                >
-                  <MessageSquare size={16} />
-                  <span>AI</span>
-                </button>
-                <button
-                  onClick={() => setRightPanelTab('team')}
-                  className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${rightPanelTab === 'team'
-                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500'
-                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
-                >
-                  <Users size={16} />
-                  <span>Team</span>
-                </button>
-              </div>
-
-              <div className="flex-1 relative overflow-hidden">
-                {rightPanelTab === 'ai' ? (
-                  <ChatInterface messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
-                ) : (
-                  <GroupChat />
-                )}
-              </div>
-            </section>
-          </>
-        )}
-      </main>
+          <div className="flex-1 relative overflow-hidden">
+            {rightPanelTab === 'ai' ? (
+              <ChatInterface messages={messages} onSendMessage={handleSendMessage} isThinking={isThinking} />
+            ) : (
+              <GroupChat />
+            )}
+          </div>
+        </section>
+      )}
 
       <AuthModal
         isOpen={isAuthModalOpen}

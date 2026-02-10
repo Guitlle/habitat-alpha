@@ -59,20 +59,20 @@ const TerrainExplorer: React.FC<TerrainExplorerProps> = ({ fileTree, fileActions
         return children;
     }, [fileTree, currentDirId]);
 
-    const handleNavigate = (folderId: string) => {
+    const handleBack = React.useCallback(() => {
+        if (!currentDirId) return;
+        const parent = findParent(fileTree, currentDirId);
+        setCurrentDirId(parent ? parent.id : null);
+    }, [currentDirId, fileTree]);
+
+    const handleNavigate = React.useCallback((folderId: string) => {
         if (folderId === 'PARENT_DIR') {
             handleBack();
             return;
         }
         console.log("TerrainExplorer: Navigating to", folderId);
         setCurrentDirId(folderId);
-    };
-
-    const handleBack = () => {
-        if (!currentDirId) return;
-        const parent = findParent(fileTree, currentDirId);
-        setCurrentDirId(parent ? parent.id : null);
-    };
+    }, [handleBack]);
 
     const currentDirName = currentDirId ? findNode(fileTree, currentDirId)?.name : 'Root';
 

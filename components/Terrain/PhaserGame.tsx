@@ -20,17 +20,23 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
     // Effect to update scene when nodes change
     useEffect(() => {
         if (globalGame && globalGame.scene) {
-            const scene = globalGame.scene.getScene('MainScene') as any; // Cast to access custom methods
+            const scene = globalGame.scene.getScene('MainScene') as any;
             if (scene && scene.loadLevel) {
                 scene.loadLevel(nodes);
             }
-            // Also update callbacks
+        }
+    }, [nodes]);
+
+    // Effect to update callbacks
+    useEffect(() => {
+        if (globalGame && globalGame.scene) {
+            const scene = globalGame.scene.getScene('MainScene') as any;
             if (scene) {
                 scene.onOpenFile = onOpenFile;
                 scene.onNavigate = onNavigate;
             }
         }
-    }, [nodes, onOpenFile, onNavigate]);
+    }, [onOpenFile, onNavigate]);
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -98,8 +104,8 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
 
                 // Update Scene Data immediately on resume
                 const scene = globalGame.scene.getScene('MainScene') as any;
-                if (scene && scene.loadLevel) {
-                    scene.loadLevel(nodes);
+                if (scene) {
+                    // Only update callbacks, do not force reload level as it resets state
                     scene.onOpenFile = onOpenFile;
                     scene.onNavigate = onNavigate;
                 }
