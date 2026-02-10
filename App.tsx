@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ToolType, Panel } from './types';
 import { TOOLS } from './constants';
@@ -21,7 +20,7 @@ import { syncService } from './services/syncService';
 import { teamService, Team } from './services/teamService';
 import AuthModal from './components/Modals/AuthModal';
 import { User } from '@supabase/supabase-js';
-import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users, LogIn, LogOut, Loader2, X } from 'lucide-react';
+import { Settings, Command, LayoutGrid, AlertCircle, GripHorizontal, Languages, Sun, Moon, MessageSquare, Users, LogIn, LogOut, Loader2, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Contexts
 import { useLanguage } from './contexts/LanguageContext';
@@ -34,14 +33,24 @@ import { useCalendarManager } from './hooks/useCalendarManager';
 import { useLayoutManager } from './hooks/useLayoutManager';
 import { useChatManager } from './hooks/useChatManager';
 import { useMemoryManager } from './hooks/useMemoryManager';
+import { useFloatingPanels, PanelState } from './hooks/useFloatingPanels';
 
 const App: React.FC = () => {
   const { t, language, toggleLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
-  // Lifted state to resolve dependency loop
-  // Start with empty panels (Terrain is background/base)
-  const [activePanels, setActivePanels] = useState<Panel[]>([]);
+  // New Floating Panels Hook
+  const {
+    panels,
+    openPanel,
+    closePanel,
+    toggleCollapse,
+    bringToFront,
+    handleMouseDown
+  } = useFloatingPanels();
+
+  // Adapter for old code that expects array of panels
+  const activePanelsList = Object.values(panels).map(p => ({ id: p.id, type: p.type, title: p.title, data: p.data }));
 
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -54,6 +63,26 @@ const App: React.FC = () => {
   const { memoryData, setMemoryData, actions: memoryActions } = useMemoryManager(user?.id);
   const { events, setEvents, schedule, setSchedule, actions: calendarActions } = useCalendarManager(user?.id, team?.id);
 
+  // Helper to bridge the new openPanel with the old one expected by hooks
+  const setActivePanelsBridge = (action: any) => {
+    const prev = activePanelsList;
+    const next = typeof action === 'function' ? action(prev) : action;
+
+    // Check for additions
+    next.forEach((p: Panel) => {
+      if (!panels[p.id]) {
+        openPanel(p.id, p.type, p.title, p.data);
+      }
+    });
+
+    // Check for removals
+    prev.forEach((p: { id: string }) => {
+      if (!next.find((n: Panel) => n.id === p.id)) {
+        closePanel(p.id);
+      }
+    });
+  };
+
   const {
     fileTree,
     openFiles,
@@ -62,19 +91,33 @@ const App: React.FC = () => {
     dirtyFileIds,
     actions: fileActions,
     setFlatFiles
-  } = useFileManager(t, activePanels, setActivePanels, user?.id);
+  } = useFileManager(t, activePanelsList, setActivePanelsBridge as any, user?.id);
 
   const {
     rightPanelTab,
     setRightPanelTab,
     chatWidth,
-    // panelHeights, // no longer needed for floating
-    // isDraggingVertical, // no longer needed
     isMobile,
     isChatHistoryOpen,
     mainContentRef,
     actions: layoutActions
-  } = useLayoutManager(t, dirtyFileIds, activePanels, setActivePanels);
+  } = useLayoutManager(t, dirtyFileIds, activePanelsList, setActivePanelsBridge as any);
+
+  // Override toggleTool to use new system
+  const toggleTool = (toolId: ToolType) => {
+    if (toolId === ToolType.CHAT) return;
+
+    // Check if open
+    if (panels[toolId]) {
+      closePanel(toolId);
+    } else {
+      openPanel(toolId, toolId);
+    }
+  };
+
+  // Re-bind layoutActions.toggleTool to ours
+  layoutActions.toggleTool = toggleTool;
+
 
   // Wiki State
   const [wikiQuery, setWikiQuery] = useState<string>('');
@@ -84,8 +127,8 @@ const App: React.FC = () => {
     handleAddProject: projectActions.addProject,
     handleAddTask: projectActions.addTask,
     setWikiQuery,
-    toggleTool: layoutActions.toggleTool,
-    activePanels
+    toggleTool: toggleTool,
+    activePanels: activePanelsList
   }, user?.id);
 
   // Load Initial Data & Auth Sync
@@ -184,7 +227,9 @@ const App: React.FC = () => {
 
   // --- Rendering ---
 
-  const renderPanelContent = (panel: Panel) => {
+  const renderPanelContent = (panel: PanelState) => {
+    // Adapter to match expected props if needed
+    // Assuming components don't need 'panel' prop directly unless for ID which they have
     switch (panel.type) {
       case ToolType.MEMORY: return <MemoryGraph data={memoryData} />;
       case ToolType.WORK: return (
@@ -270,13 +315,13 @@ const App: React.FC = () => {
           }}
         >
           {TOOLS.filter(t => t.id !== ToolType.CHAT && t.id !== ToolType.TERRAIN).map((tool) => {
-            const isActive = activePanels.some(p => p.id === tool.id);
+            const isActive = !!panels[tool.id];
             const translatedLabel = t.tools[tool.id as keyof typeof t.tools] || tool.label;
 
             return (
               <button
                 key={tool.id}
-                onClick={() => layoutActions.toggleTool(tool.id as ToolType)}
+                onClick={() => toggleTool(tool.id as ToolType)}
                 className={`p-3 rounded-xl transition-all duration-200 group relative ${isActive
                   ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-500/30'
                   : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-900'
@@ -363,23 +408,7 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* OVERLAY LAYER: FLOATING PANELS */}
-        <div className="absolute inset-0 z-10 pointer-events-none p-4 flex gap-4 flex-wrap content-start">
-          {activePanels.map((panel) => (
-            <div key={panel.id} className="relative bg-white/95 dark:bg-gray-950/95 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl overflow-hidden w-full h-[400px] pointer-events-auto flex flex-col resize animate-in zoom-in-50 duration-200">
-              <div className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 cursor-move">
-                <span className="text-xs font-bold text-gray-500 uppercase px-2">{panel.title || panel.type}</span>
-                <button onClick={() => layoutActions.closePanel(panel.id)} className="p-1 hover:bg-red-500 hover:text-white rounded transition-colors">
-                  <X size={14} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-auto">
-                {renderPanelContent(panel)}
-              </div>
-              <div className="absolute bottom-1 right-1 w-3 h-3 cursor-nwse-resize opacity-50"></div>
-            </div>
-          ))}
-        </div>
+
       </div>
 
       {/* RESIZE HANDLE */}
@@ -431,6 +460,67 @@ const App: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* OVERLAY LAYER: FLOATING PANELS (Global) */}
+      <div className="absolute inset-0 z-40 pointer-events-none">
+        {Object.values(panels).map((panel) => (
+          <div
+            key={panel.id}
+            id={`panel-${panel.id}`}
+            className="absolute bg-white/95 dark:bg-gray-950/95 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in zoom-in-95 duration-200"
+            style={{
+              left: panel.x,
+              top: panel.y,
+              width: panel.width,
+              height: panel.isCollapsed ? 'auto' : panel.height,
+              zIndex: panel.zIndex
+            }}
+            onMouseDown={() => bringToFront(panel.id)}
+          >
+            {/* Header */}
+            <div
+              className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 cursor-move select-none"
+              onMouseDown={(e) => handleMouseDown(e, panel.id, 'move')}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-500 uppercase px-2">{panel.title || panel.type}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleCollapse(panel.id); }}
+                  className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
+                >
+                  {panel.isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); closePanel(panel.id); }}
+                  className="p-1 text-gray-500 hover:bg-red-500 hover:text-white rounded transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            {!panel.isCollapsed && (
+              <>
+                <div className="flex-1 overflow-auto">
+                  {renderPanelContent(panel)}
+                </div>
+                {/* Resize Handle */}
+                <div
+                  className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize hover:bg-indigo-500/20 rounded-tl transition-colors z-20"
+                  onMouseDown={(e) => handleMouseDown(e, panel.id, 'resize')}
+                >
+                  <div className="absolute bottom-1 right-1">
+                    <GripHorizontal size={10} className="text-gray-400 rotate-45" />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
 
       <AuthModal
         isOpen={isAuthModalOpen}
