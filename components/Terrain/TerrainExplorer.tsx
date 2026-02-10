@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy, useState, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useCallback } from 'react';
 import { FileNode } from '../../types';
 import { ArrowLeft } from 'lucide-react';
 
@@ -7,38 +7,35 @@ const PhaserGame = lazy(() => import('./PhaserGame'));
 
 interface TerrainExplorerProps {
     fileTree: FileNode[];
-    fileActions: {
-        openFile: (file: FileNode) => void;
-        // add other actions if needed
-    };
+    onOpenFile: (file: FileNode) => void;
 }
 
-const TerrainExplorer: React.FC<TerrainExplorerProps> = ({ fileTree, fileActions }) => {
+// Helper to find a node by ID recursively
+const findNode = (nodes: FileNode[], id: string): FileNode | null => {
+    for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+            const found = findNode(node.children, id);
+            if (found) return found;
+        }
+    }
+    return null;
+};
+
+// Helper to find parent of a node
+const findParent = (nodes: FileNode[], targetId: string, parent: FileNode | null = null): FileNode | null => {
+    for (const node of nodes) {
+        if (node.id === targetId) return parent;
+        if (node.children) {
+            const found = findParent(node.children, targetId, node);
+            if (found !== undefined) return found; // found could be null (root parent) or a node
+        }
+    }
+    return undefined; // Not found in this branch
+};
+
+const TerrainExplorer: React.FC<TerrainExplorerProps> = ({ fileTree, onOpenFile }) => {
     const [currentDirId, setCurrentDirId] = useState<string | null>(null);
-
-    // Helper to find a node by ID recursively
-    const findNode = (nodes: FileNode[], id: string): FileNode | null => {
-        for (const node of nodes) {
-            if (node.id === id) return node;
-            if (node.children) {
-                const found = findNode(node.children, id);
-                if (found) return found;
-            }
-        }
-        return null;
-    };
-
-    // Helper to find parent of a node
-    const findParent = (nodes: FileNode[], targetId: string, parent: FileNode | null = null): FileNode | null => {
-        for (const node of nodes) {
-            if (node.id === targetId) return parent;
-            if (node.children) {
-                const found = findParent(node.children, targetId, node);
-                if (found !== undefined) return found; // found could be null (root parent) or a node
-            }
-        }
-        return undefined; // Not found in this branch
-    };
 
     const visibleNodes = useMemo(() => {
         if (!currentDirId) {
@@ -59,20 +56,20 @@ const TerrainExplorer: React.FC<TerrainExplorerProps> = ({ fileTree, fileActions
         return children;
     }, [fileTree, currentDirId]);
 
-    const handleNavigate = (folderId: string) => {
+    const handleBack = useCallback(() => {
+        if (!currentDirId) return;
+        const parent = findParent(fileTree, currentDirId);
+        setCurrentDirId(parent ? parent.id : null);
+    }, [fileTree, currentDirId]);
+
+    const handleNavigate = useCallback((folderId: string) => {
         if (folderId === 'PARENT_DIR') {
             handleBack();
             return;
         }
         console.log("TerrainExplorer: Navigating to", folderId);
         setCurrentDirId(folderId);
-    };
-
-    const handleBack = () => {
-        if (!currentDirId) return;
-        const parent = findParent(fileTree, currentDirId);
-        setCurrentDirId(parent ? parent.id : null);
-    };
+    }, [handleBack]);
 
     const currentDirName = currentDirId ? findNode(fileTree, currentDirId)?.name : 'Root';
 
@@ -98,7 +95,7 @@ const TerrainExplorer: React.FC<TerrainExplorerProps> = ({ fileTree, fileActions
 
                 <PhaserGame
                     nodes={visibleNodes}
-                    onOpenFile={fileActions.openFile}
+                    onOpenFile={onOpenFile}
                     onNavigate={handleNavigate}
                 />
 

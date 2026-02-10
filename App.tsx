@@ -246,7 +246,7 @@ const App: React.FC = () => {
       case ToolType.TERRAIN: return (
         <TerrainExplorer
           fileTree={fileTree}
-          fileActions={{ openFile: fileActions.openFile }}
+          onOpenFile={fileActions.openFile}
         />
       );
       case ToolType.CALCULATOR: return (

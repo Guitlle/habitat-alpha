@@ -14,13 +14,12 @@ export default class MainScene extends Phaser.Scene {
     private tileSize = 130; // Isometric tile width
     private tileHeight = 64; // Isometric tile height
 
+    // Keep track of full nodes to restore content/metadata on interaction
+    private currentNodes: FileNode[] = [];
+
     // Callbacks provided by React
     public onOpenFile?: (node: FileNode) => void;
-    // We add onNavigate too if we want folder navigation
     public onNavigate?: (folderId: string) => void;
-
-    // Track last navigation to prevent rapid re-triggering
-    private lastNavTime = 0;
 
     constructor() {
         super('MainScene');
@@ -59,6 +58,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     public loadLevel(nodes: FileNode[]) {
+        this.currentNodes = nodes;
+
         // Clear existing map
         if (this.map) {
             this.map.forEach(row => row.forEach(sprite => sprite.destroy()));
@@ -151,18 +152,10 @@ export default class MainScene extends Phaser.Scene {
         for (let x = 0; x < width; x++) {
             for (let y = 0; y < height; y++) {
                 if (tiles[x][y].fileId === 'PARENT_DIR') {
-                    // Found it! Spawn "South" of it (in front).
-                    // In isometric grid (x, y), "South" is typically increasing both x and y?
-                    // actually if isoX = (x-y), isoY = (x+y). Increasing Y (visually down) means increasing x+y.
-                    // Let's place player at grid (x, y+1) or (x+1, y) ?
-                    // Actually let's just use world coordinates.
                     const tileX = (x - y) * this.tileSize / 2;
                     const tileY = (x + y) * this.tileHeight / 2;
-
-                    // "In Front" is visually DOWN (+Y).
-                    // We want to be slightly offset so we aren't inside it.
                     spawnX = tileX - (this.tileHeight * 0.5);
-                    spawnY = tileY + (this.tileHeight * 0.5); // Move down by 1.5 tiles visually
+                    spawnY = tileY + (this.tileHeight * 0.5);
                     foundPattern = true;
                     break;
                 }
@@ -171,10 +164,8 @@ export default class MainScene extends Phaser.Scene {
         }
 
         if (!foundPattern) {
-            // Default to 0,0 or finding first grass
             spawnX = 0;
             spawnY = 0;
-            // Try to safe spawn on first walkable
             for (let x = width - 1; x >= 0; x--) {
                 for (let y = 0; y < height; y++) {
                     if (!tiles[x][y].type.startsWith('house') && tiles[x][y].type !== 'pathTunnel') {
@@ -208,45 +199,57 @@ export default class MainScene extends Phaser.Scene {
             const { width, height, tiles } = this.mapData;
             const playerX = this.player.x;
             const playerY = this.player.y;
-            // Interaction radius
-            const threshold = 120;
 
-            let found = false;
+            // Get player grid pos
+            const halfW = this.tileSize / 2;
+            const halfH = this.tileHeight / 2;
+            const gridX = Math.round((playerY / halfH + playerX / halfW) / 2);
+            const gridY = Math.round((playerY / halfH - playerX / halfW) / 2);
 
-            for (let x = 0; x < width; x++) {
-                for (let y = 0; y < height; y++) {
-                    const tile = tiles[x][y];
-                    // Only check interactive tiles
-                    if (!tile.fileId) continue;
+            let bestDist = Infinity;
+            let bestTile: any = null;
 
-                    const tileX = (x - y) * this.tileSize / 2;
-                    const tileY = (x + y) * this.tileHeight / 2;
+            // Check neighbors (3x3 area)
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const tx = gridX + dx;
+                    const ty = gridY + dy;
 
-                    // Center of the tile logic
-                    const centerX = tileX;
-                    const centerY = tileY - (this.tileHeight / 2);
+                    if (tx >= 0 && tx < width && ty >= 0 && ty < height) {
+                        const tile = tiles[tx][ty];
+                        if (tile.fileId) {
+                            const tileX = (tx - ty) * this.tileSize / 2;
+                            const tileY = (tx + ty) * this.tileHeight / 2;
+                            const centerY = tileY - (this.tileHeight / 2);
 
-                    const dist = Phaser.Math.Distance.Between(playerX, playerY, centerX, centerY);
+                            const dist = Phaser.Math.Distance.Between(playerX, playerY, tileX, centerY);
 
-                    if (dist < threshold) {
-                        found = true;
-
-                        if (tile.isFolder) {
-                            // Navigate!
-                            if (this.onNavigate && tile.fileId) {
-                                this.onNavigate(tile.fileId);
-                                return;
+                            // 120px interaction radius
+                            if (dist < 120 && dist < bestDist) {
+                                bestDist = dist;
+                                bestTile = tile;
                             }
+                        }
+                    }
+                }
+            }
+
+            if (bestTile) {
+                if (bestTile.isFolder) {
+                    if (this.onNavigate && bestTile.fileId) {
+                        this.onNavigate(bestTile.fileId);
+                    }
+                } else {
+                    if (this.onOpenFile && bestTile.fileId) {
+                        const fullNode = this.currentNodes.find(n => n.id === bestTile.fileId);
+                        if (fullNode) {
+                            this.onOpenFile(fullNode);
                         } else {
-                            // Open File!
-                            if (this.onOpenFile && tile.fileName && tile.fileId) {
-                                this.onOpenFile({
-                                    id: tile.fileId,
-                                    name: tile.fileName!,
-                                    type: 'file',
-                                });
-                                return;
-                            }
+                             this.onOpenFile({
+                                 id: bestTile.fileId,
+                                 name: bestTile.fileName || 'Unknown',
+                                 type: 'file',
+                             });
                         }
                     }
                 }
@@ -266,7 +269,6 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private createPlayer() {
-        // Make a container for the player
         this.player = this.add.container(0, 0);
 
         if (this.textures.exists('player')) {
@@ -274,20 +276,16 @@ export default class MainScene extends Phaser.Scene {
             sprite.setOrigin(0.5, 1);
             this.player.add(sprite);
         } else {
-            // Draw player graphic
             const graphics = this.add.graphics();
             graphics.fillStyle(0xff0000, 1);
-            graphics.fillCircle(0, -20, 10); // Head
+            graphics.fillCircle(0, -20, 10);
             graphics.fillStyle(0x0000ff, 1);
-            graphics.fillRect(-10, -10, 20, 20); // Body
+            graphics.fillRect(-10, -10, 20, 20);
             this.player.add(graphics);
         }
-        // Depth initialized
         this.player.setDepth(0);
 
-        // Input
         if (this.input.keyboard) {
-            // Cursors are created in create() now, or checked here if needed
             if (!this.cursors) this.cursors = this.input.keyboard.createCursorKeys();
         }
     }
@@ -320,29 +318,24 @@ export default class MainScene extends Phaser.Scene {
             this.player.x = nextX;
             this.player.y = nextY;
 
-            // Camera follow with lerp
             this.cameras.main.scrollX += (this.player.x - this.cameras.main.scrollX - this.cameras.main.width * 0.5) * 0.1;
             this.cameras.main.scrollY += (this.player.y - this.cameras.main.scrollY - this.cameras.main.height * 0.5) * 0.1;
         }
     }
 
     private canMoveTo(worldX: number, worldY: number): boolean {
-        // Inverse isometric transform
         const halfW = this.tileSize / 2;
         const halfH = this.tileHeight / 2;
 
         const gridX = Math.round((worldY / halfH + worldX / halfW) / 2);
         const gridY = Math.round((worldY / halfH - worldX / halfW) / 2);
 
-        // Bounds Check
         if (gridX < 0 || gridX >= this.mapData.width || gridY < 0 || gridY >= this.mapData.height) {
             return false;
         }
 
-        // Tile Type Check
         const tile = this.mapData.tiles[gridX][gridY];
 
-        // Blocking types
         if (tile.type.startsWith('house')) return false;
         if (tile.type === 'pathTunnel') return false;
         if (tile.type === 'water') return false;

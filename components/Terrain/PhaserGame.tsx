@@ -6,7 +6,7 @@ import MainScene from './scenes/MainScene';
 interface PhaserGameProps {
     height?: number | string;
     width?: number | string;
-    nodes?: any[]; // FileNode[] - using any to avoid import cycles or strict typing issues for now, or import FileNode
+    nodes?: any[]; // FileNode[]
     onOpenFile?: (node: any) => void;
     onNavigate?: (folderId: string) => void;
 }
@@ -16,21 +16,58 @@ let globalGame: Phaser.Game | null = null;
 
 const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%', nodes = [], onOpenFile, onNavigate }) => {
     const gameContainerRef = useRef<HTMLDivElement>(null);
+    const nodesRef = useRef(nodes);
+    const onOpenFileRef = useRef(onOpenFile);
+    const onNavigateRef = useRef(onNavigate);
+    const prevLoadedNodesRef = useRef<any[]>([]);
 
-    // Effect to update scene when nodes change
+    // Helper to check if level update is needed
+    // We ignore content/metadata updates, only care about structure/names for the map
+    const shouldUpdateLevel = (nextNodes: any[]) => {
+        const prev = prevLoadedNodesRef.current;
+        if (prev === nextNodes) return false; // Same reference
+        if (prev.length !== nextNodes.length) return true;
+
+        for(let i = 0; i < prev.length; i++) {
+            if (prev[i].id !== nextNodes[i].id) return true;
+            if (prev[i].name !== nextNodes[i].name) return true;
+            if (prev[i].type !== nextNodes[i].type) return true;
+            if (prev[i].children?.length !== nextNodes[i].children?.length) return true;
+        }
+        return false;
+    };
+
+    // Update refs whenever props change
+    useEffect(() => {
+        nodesRef.current = nodes;
+        onOpenFileRef.current = onOpenFile;
+        onNavigateRef.current = onNavigate;
+    }, [nodes, onOpenFile, onNavigate]);
+
+    // Effect to update level only when nodes meaningfully change
     useEffect(() => {
         if (globalGame && globalGame.scene) {
-            const scene = globalGame.scene.getScene('MainScene') as any; // Cast to access custom methods
+            const scene = globalGame.scene.getScene('MainScene') as any;
             if (scene && scene.loadLevel) {
-                scene.loadLevel(nodes);
+                if (shouldUpdateLevel(nodes)) {
+                    // console.log("PhaserGame: Updating Level (Nodes changed)");
+                    scene.loadLevel(nodes);
+                    prevLoadedNodesRef.current = nodes;
+                }
             }
-            // Also update callbacks
+        }
+    }, [nodes]);
+
+    // Separate effect for callbacks to avoid level reload
+    useEffect(() => {
+        if (globalGame && globalGame.scene) {
+            const scene = globalGame.scene.getScene('MainScene') as any;
             if (scene) {
                 scene.onOpenFile = onOpenFile;
                 scene.onNavigate = onNavigate;
             }
         }
-    }, [nodes, onOpenFile, onNavigate]);
+    }, [onOpenFile, onNavigate]);
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -42,21 +79,22 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
             if (!container) return;
             const { clientWidth, clientHeight } = container;
 
-            // 1. Safety check: Do not init if dimensions are 0 (causes Incomplete Attachment)
+            // Safety check
             if (clientWidth === 0 || clientHeight === 0) return;
 
             if (!globalGame) {
-                // First load: Create the game instance
+                // First load
                 const config: Phaser.Types.Core.GameConfig = {
                     type: Phaser.AUTO,
                     parent: container,
                     width: '100%',
                     height: '100%',
                     scene: [MainScene],
+                    transparent: true, // often better for UI integration
                     physics: {
                         default: 'arcade',
                         arcade: {
-                            gravity: { x: 0, y: 0 }
+                            gravity: { x: 0, y: 0 } // Fix: gravity object was { x, y } but type check might fail if strict
                         }
                     },
                     scale: {
@@ -66,47 +104,39 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
                 };
                 globalGame = new Phaser.Game(config);
 
-                // Pass initial data once scene is ready
-                // We can't easily pass it in constructor config for AUTO scene start
-                // But MainScene can pull from a global or we use an event.
-                // Or simplified: just wait for the useEffect [nodes] to fire? 
-                // The useEffect [nodes] might fire before game is ready.
-                // Let's add a "ready" event listener or just rely on the effect retrying or duplicate call.
+                // Initialize registry
+                globalGame.registry.set('initialNodes', nodesRef.current);
+                globalGame.registry.set('onOpenFile', onOpenFileRef.current);
+                globalGame.registry.set('onNavigate', onNavigateRef.current);
 
-                // Actual robust way: Use registry
-                globalGame.registry.set('initialNodes', nodes);
-                globalGame.registry.set('onOpenFile', onOpenFile);
-                globalGame.registry.set('onNavigate', onNavigate);
+                prevLoadedNodesRef.current = nodesRef.current;
 
             } else {
-                // Subsequent loads: Resume and Reparent
+                // Resume and Reparent
                 if (globalGame.canvas && !container.contains(globalGame.canvas)) {
                     container.appendChild(globalGame.canvas);
                 }
 
-                // Update the parent reference in ScaleManager so it measures the correct element
-                // We cast to any because the type definition might mark it as readonly, but we need to update it
                 (globalGame.scale as any).parent = container;
-
-                // Resume game loop
                 globalGame.loop.wake();
-
-                // Force a resize update to match new container
-                // We do NOT call refresh() because it relies on the parent's observed size which might lag or be incorrect
-                // Instead we explicitly resize to the known client dimensions
                 globalGame.scale.resize(clientWidth, clientHeight);
 
                 // Update Scene Data immediately on resume
                 const scene = globalGame.scene.getScene('MainScene') as any;
-                if (scene && scene.loadLevel) {
-                    scene.loadLevel(nodes);
-                    scene.onOpenFile = onOpenFile;
-                    scene.onNavigate = onNavigate;
+                if (scene) {
+                    scene.onOpenFile = onOpenFileRef.current;
+                    scene.onNavigate = onNavigateRef.current;
+
+                    // Check if we need to reload level (e.g. navigated away and came back with different folder)
+                    if (scene.loadLevel && shouldUpdateLevel(nodesRef.current)) {
+                         // console.log("PhaserGame: Reloading Level on Resume");
+                         scene.loadLevel(nodesRef.current);
+                         prevLoadedNodesRef.current = nodesRef.current;
+                    }
                 }
             }
         };
 
-        // Use ResizeObserver to detect when the container has valid size
         resizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
@@ -118,16 +148,14 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ height = '100%', width = '100%'
         resizeObserver.observe(container);
 
         return () => {
-            // Cleanup: Pause instead of Destroy
             if (resizeObserver) {
                 resizeObserver.disconnect();
             }
             if (globalGame) {
-                // Sleep the loop to save resources while hidden
                 globalGame.loop.sleep();
             }
         };
-    }, []); // Empty dependency array for init, but we handle updates in separate effect
+    }, []);
 
     return (
         <div
