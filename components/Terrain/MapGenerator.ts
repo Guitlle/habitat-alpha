@@ -39,7 +39,7 @@ export class MapGenerator {
                 const type = rawTiles[y][x] || 'grass';
                 tiles[x][y] = {
                     type,
-                    height: type === 'water' ? 0 : 0.5
+                    height: 0
                 };
             }
         }
@@ -108,7 +108,7 @@ export class MapGenerator {
 
             tiles[tx][ty] = {
                 type: tileType,
-                height: zHeight,
+                height: 0,
                 fileId: node.id,
                 fileName: node.name,
                 isFolder: node.type === 'folder'

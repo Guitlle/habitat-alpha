@@ -46,10 +46,24 @@ const TerrainExplorer: React.FC<TerrainExplorerProps> = ({ fileTree, fileActions
             return fileTree;
         }
         const currentDir = findNode(fileTree, currentDirId);
-        return currentDir && currentDir.children ? currentDir.children : [];
+        const children = currentDir && currentDir.children ? [...currentDir.children] : [];
+
+        // Add Parent Link (Tunnel back)
+        children.unshift({
+            id: 'PARENT_DIR',
+            name: '.. (Up)',
+            type: 'folder',
+            children: []
+        });
+
+        return children;
     }, [fileTree, currentDirId]);
 
     const handleNavigate = (folderId: string) => {
+        if (folderId === 'PARENT_DIR') {
+            handleBack();
+            return;
+        }
         console.log("TerrainExplorer: Navigating to", folderId);
         setCurrentDirId(folderId);
     };

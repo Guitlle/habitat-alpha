@@ -77,10 +77,12 @@ export default class MainScene extends Phaser.Scene {
             for (let y = 0; y < height; y++) {
                 const tile = tiles[x][y];
                 const tileType = tile.type;
-                const zHeight = tile.height;
 
                 const isoX = (x - y) * this.tileSize / 2;
-                const isoY = (x + y) * this.tileHeight / 2 - (zHeight * 24);
+                const isoY = (x + y) * this.tileHeight / 2; // Flat ground assumption
+
+                // Determine if this tile is "flat" (walkable) or "tall" (obstacle)
+                const isObstacle = tileType.startsWith('house') || tileType === 'pathTunnel';
 
                 let sprite: Phaser.GameObjects.Sprite;
 
@@ -104,11 +106,19 @@ export default class MainScene extends Phaser.Scene {
                     sprite = this.add.sprite(isoX, isoY, fallbackKey);
                 }
 
-                sprite.setOrigin(0.5, 1);
-                sprite.setDepth(isoY);
+                sprite.setOrigin(0.5, 1); // Anchor at bottom center
+
+                if (isObstacle) {
+                    const depthY = isoY;
+                    sprite.setDepth(depthY);
+                } else {
+                    // Flat tiles lowest depth
+                    sprite.setDepth(-9999);
+                }
+
                 this.map[x][y] = sprite;
 
-                // Add Label if it's a file or folder
+                // Add Label
                 if (tile.fileName) {
                     const label = this.add.text(isoX, isoY - 40, tile.fileName.substring(0, 15) + (tile.fileName.length > 15 ? '...' : ''), {
                         fontSize: '12px',
@@ -117,29 +127,77 @@ export default class MainScene extends Phaser.Scene {
                         padding: { x: 4, y: 2 }
                     });
                     label.setOrigin(0.5, 1);
-                    label.setDepth(isoY + 100); // Always above tile
+                    label.setDepth(999999);
                     this.textLabels.push(label);
                 }
             }
         }
 
-        // Re-create Player if needed, or reposition
+        // Re-create Player if needed
         if (!this.player) {
             this.createPlayer();
         }
-        // Reset player position to start of map (padding area)
-        this.player.x = 0; // rough start
-        this.player.y = 0;
 
-        // Center camera on start
-        this.cameras.main.centerOn(0, 0);
+        // Find Spawn Point
+        this.setPlayerSpawn(width, height, tiles);
+    }
+
+    private setPlayerSpawn(width: number, height: number, tiles: any[][]) {
+        let spawnX = 0;
+        let spawnY = 0;
+        let foundPattern = false;
+
+        // 1. Look for 'PARENT_DIR' (Up) tile
+        for (let x = 0; x < width; x++) {
+            for (let y = 0; y < height; y++) {
+                if (tiles[x][y].fileId === 'PARENT_DIR') {
+                    // Found it! Spawn "South" of it (in front).
+                    // In isometric grid (x, y), "South" is typically increasing both x and y?
+                    // actually if isoX = (x-y), isoY = (x+y). Increasing Y (visually down) means increasing x+y.
+                    // Let's place player at grid (x, y+1) or (x+1, y) ?
+                    // Actually let's just use world coordinates.
+                    const tileX = (x - y) * this.tileSize / 2;
+                    const tileY = (x + y) * this.tileHeight / 2;
+
+                    // "In Front" is visually DOWN (+Y).
+                    // We want to be slightly offset so we aren't inside it.
+                    spawnX = tileX - (this.tileHeight * 0.5);
+                    spawnY = tileY + (this.tileHeight * 0.5); // Move down by 1.5 tiles visually
+                    foundPattern = true;
+                    break;
+                }
+            }
+            if (foundPattern) break;
+        }
+
+        if (!foundPattern) {
+            // Default to 0,0 or finding first grass
+            spawnX = 0;
+            spawnY = 0;
+            // Try to safe spawn on first walkable
+            for (let x = width - 1; x >= 0; x--) {
+                for (let y = 0; y < height; y++) {
+                    if (!tiles[x][y].type.startsWith('house') && tiles[x][y].type !== 'pathTunnel') {
+                        spawnX = (x - y) * this.tileSize / 2;
+                        spawnY = (x + y) * this.tileHeight / 2;
+                        break;
+                    }
+                }
+            }
+        }
+
+        this.player.x = spawnX;
+        this.player.y = spawnY;
+        this.cameras.main.centerOn(spawnX, spawnY);
     }
 
     update(time: number, delta: number) {
         this.handleInput();
         this.checkInteractions(time);
 
-        // Update label visibility based on distance to player? Optional optimization.
+        if (this.player) {
+            this.player.setDepth(this.player.y);
+        }
     }
 
     private checkInteractions(time: number) {
@@ -147,12 +205,11 @@ export default class MainScene extends Phaser.Scene {
 
         // Check if Enter key was just pressed
         if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
-            console.log('ENTER pressed at Player Pos:', Math.round(this.player.x), Math.round(this.player.y));
-
             const { width, height, tiles } = this.mapData;
             const playerX = this.player.x;
             const playerY = this.player.y;
-            const threshold = 60; // Larger threshold for easier manual activation
+            // Interaction radius
+            const threshold = 120;
 
             let found = false;
 
@@ -162,9 +219,8 @@ export default class MainScene extends Phaser.Scene {
                     // Only check interactive tiles
                     if (!tile.fileId) continue;
 
-                    const zHeight = tile.height;
                     const tileX = (x - y) * this.tileSize / 2;
-                    const tileY = (x + y) * this.tileHeight / 2 - (zHeight * 24);
+                    const tileY = (x + y) * this.tileHeight / 2;
 
                     // Center of the tile logic
                     const centerX = tileX;
@@ -174,19 +230,16 @@ export default class MainScene extends Phaser.Scene {
 
                     if (dist < threshold) {
                         found = true;
-                        console.log('Interaction detected with:', tile.fileName, 'Distance:', Math.round(dist));
 
                         if (tile.isFolder) {
                             // Navigate!
                             if (this.onNavigate && tile.fileId) {
-                                console.log('Navigating to folder:', tile.fileName);
                                 this.onNavigate(tile.fileId);
                                 return;
                             }
                         } else {
                             // Open File!
                             if (this.onOpenFile && tile.fileName && tile.fileId) {
-                                console.log('Opening file:', tile.fileName);
                                 this.onOpenFile({
                                     id: tile.fileId,
                                     name: tile.fileName!,
@@ -197,9 +250,6 @@ export default class MainScene extends Phaser.Scene {
                         }
                     }
                 }
-            }
-            if (!found) {
-                console.log('No interactive tile found nearby.');
             }
         }
     }
@@ -232,7 +282,8 @@ export default class MainScene extends Phaser.Scene {
             graphics.fillRect(-10, -10, 20, 20); // Body
             this.player.add(graphics);
         }
-        this.player.setDepth(99999);
+        // Depth initialized
+        this.player.setDepth(0);
 
         // Input
         if (this.input.keyboard) {
@@ -242,9 +293,9 @@ export default class MainScene extends Phaser.Scene {
     }
 
     private handleInput() {
-        if (!this.cursors) return;
+        if (!this.cursors || !this.mapData) return;
 
-        const speed = 2; // User requested speed
+        const speed = 2.5;
         let dx = 0;
         let dy = 0;
 
@@ -260,11 +311,42 @@ export default class MainScene extends Phaser.Scene {
             dy = speed;
         }
 
-        this.player.x += dx;
-        this.player.y += dy;
+        if (dx === 0 && dy === 0) return;
 
-        // Camera follow with lerp
-        this.cameras.main.scrollX += (this.player.x - this.cameras.main.scrollX - this.cameras.main.width * 0.5) * 0.1;
-        this.cameras.main.scrollY += (this.player.y - this.cameras.main.scrollY - this.cameras.main.height * 0.5) * 0.1;
+        const nextX = this.player.x + dx;
+        const nextY = this.player.y + dy;
+
+        if (this.canMoveTo(nextX, nextY)) {
+            this.player.x = nextX;
+            this.player.y = nextY;
+
+            // Camera follow with lerp
+            this.cameras.main.scrollX += (this.player.x - this.cameras.main.scrollX - this.cameras.main.width * 0.5) * 0.1;
+            this.cameras.main.scrollY += (this.player.y - this.cameras.main.scrollY - this.cameras.main.height * 0.5) * 0.1;
+        }
+    }
+
+    private canMoveTo(worldX: number, worldY: number): boolean {
+        // Inverse isometric transform
+        const halfW = this.tileSize / 2;
+        const halfH = this.tileHeight / 2;
+
+        const gridX = Math.round((worldY / halfH + worldX / halfW) / 2);
+        const gridY = Math.round((worldY / halfH - worldX / halfW) / 2);
+
+        // Bounds Check
+        if (gridX < 0 || gridX >= this.mapData.width || gridY < 0 || gridY >= this.mapData.height) {
+            return false;
+        }
+
+        // Tile Type Check
+        const tile = this.mapData.tiles[gridX][gridY];
+
+        // Blocking types
+        if (tile.type.startsWith('house')) return false;
+        if (tile.type === 'pathTunnel') return false;
+        if (tile.type === 'water') return false;
+
+        return true;
     }
 }

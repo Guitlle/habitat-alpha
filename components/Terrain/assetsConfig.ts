@@ -26,9 +26,9 @@ export const TILE_MAPPING: Record<string, TileConfig> = {
     pathRightLeft: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_29.png' },
     pathUpDown: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_32.png' },
     pathUpLeft: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_39.png' },
-    pathUpRight: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_35.png' },
-    pathDownLeft: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_31.png' },
-    pathDownRight: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_34.png' },
+    pathDownLeft: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_35.png' },
+    pathDownRight: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_31.png' },
+    pathUpRight: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_34.png' },
     pathAllDirections: { file: 'assets/tiles/kenney_tower-defense/PNG/Landscape/landscape_30.png' },
     pathTunnel: { file: 'assets/tiles/kenney_isometric-city/PNG/cityTiles_026.png' },
 
